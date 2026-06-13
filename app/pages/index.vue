@@ -4,6 +4,7 @@
 
 <template>
   <div>
+    <ChartsWatchedAllByRating />
     <ChartsWatchedThisYear />
     <ChartsWatchedAllYears />
     <UPageHero
