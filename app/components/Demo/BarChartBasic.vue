@@ -41,14 +41,6 @@ const yFormatter = (tick: number) => tick.toString()
       <h3 class="text-lg font-semibold">
         Bar Chart
       </h3>
-      <NuxtLink to="/blocks/bar-charts">
-        <UButton
-          icon="i-lucide-copy"
-          size="sm"
-          variant="soft"
-          color="neutral"
-        />
-      </NuxtLink>
     </div>
     <BarChart
       :data="RevenueData"
