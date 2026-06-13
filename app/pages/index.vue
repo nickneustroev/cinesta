@@ -1,36 +1,11 @@
 <script setup lang="ts">
-const data = [
-  { month: 'Jan', sales: 100, profit: 50 },
-  { month: 'Feb', sales: 120, profit: 55 },
-  { month: 'Mar', sales: 180, profit: 80 },
-  { month: 'Apr', sales: 110, profit: 40 },
-  { month: 'May', sales: 90, profit: 30 }
-]
-
-const categories = {
-  sales: {
-    name: 'Sales',
-    color: '#3b82f6'
-  },
-  profit: {
-    name: 'Profit',
-    color: '#10b981'
-  }
-}
-
-const xFormatter = (i: number) => data[i].month
+import BarChartBasic from '~/components/Demo/BarChartBasic.vue'
 </script>
 
 <template>
   <div>
-    <LineChart
-      :data="data"
-      :categories="categories"
-      :height="300"
-      :x-formatter="xFormatter"
-      x-label="Month"
-      y-label="Amount"
-    />
+    <BarChartBasic />
+    <DemoLineChart />
     <UPageHero
       title="Nuxt Starter Template"
       description="A production-ready starter template powered by Nuxt UI. Build beautiful, accessible, and performant applications in minutes, not hours."
