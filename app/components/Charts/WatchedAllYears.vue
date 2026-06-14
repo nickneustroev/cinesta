@@ -1,22 +1,16 @@
 <script lang="ts" setup>
+import type { WatchedEntry } from '~/types/import'
+
 defineOptions({
   tags: ['barcharts', 'vertical']
 })
 
-withDefaults(
-  defineProps<{
-    showTitle?: boolean
-  }>(),
-  {
-    showTitle: false
-  }
-)
-
-import type { WatchedEntry } from '~/utils/watched'
+const props = defineProps<{
+  data: WatchedEntry[]
+  showTitle?: boolean
+}>()
 
 const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-
-const { data: watchedRaw } = await useFetch<WatchedEntry[]>('/api/data/watched')
 
 interface YearMonthEntry {
   label: string
@@ -24,21 +18,21 @@ interface YearMonthEntry {
 }
 
 const earliestDate = computed(() => {
-  if (!watchedRaw.value?.length) return ''
-  let min = watchedRaw.value[0].date
-  for (const entry of watchedRaw.value) {
+  if (!props.data.length) return ''
+  let min = props.data[0]!.date
+  for (const entry of props.data) {
     if (entry.date < min) min = entry.date
   }
   return min
 })
 
 const chartData = computed(() => {
-  if (!watchedRaw.value) return []
+  if (!props.data.length) return []
   const skipDate = earliestDate.value
 
   const map = new Map<string, number>()
 
-  for (const entry of watchedRaw.value) {
+  for (const entry of props.data) {
     if (entry.date === skipDate) continue
     const key = entry.date.slice(0, 7)
     map.set(key, (map.get(key) ?? 0) + 1)
@@ -50,8 +44,8 @@ const chartData = computed(() => {
 
   for (const [key, count] of sorted) {
     const [year, monthNum] = key.split('-')
-    const monthName = shortMonths[Number.parseInt(monthNum, 10) - 1]
-    result.push({ label: `${year} ${monthName}`, count })
+    const monthName = shortMonths[Number.parseInt(monthNum!, 10) - 1]
+    result.push({ label: `${year} ${monthName ?? ''}`, count })
   }
 
   return result

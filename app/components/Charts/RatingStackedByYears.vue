@@ -1,21 +1,15 @@
 <script lang="ts" setup>
 import { ratingKeys, ratingLookup, groupRatingsByYear, buildRatingCategories } from '~/utils/ratings'
-import type { RatingEntry } from '~/utils/ratings'
+import type { RatingEntry } from '~/types/import'
 
 defineOptions({
   tags: ['barcharts', 'stacked']
 })
 
-withDefaults(
-  defineProps<{
-    showTitle?: boolean
-  }>(),
-  {
-    showTitle: false
-  }
-)
-
-const { data: ratingsRaw } = await useFetch<RatingEntry[]>('/api/data/ratings')
+const props = defineProps<{
+  data: RatingEntry[]
+  showTitle?: boolean
+}>()
 
 interface YearData {
   [key: string]: string | number
@@ -23,15 +17,15 @@ interface YearData {
 }
 
 const chartData = computed(() => {
-  if (!ratingsRaw.value) return []
+  if (!props.data.length) return []
 
-  const { map, sortedYears } = groupRatingsByYear(ratingsRaw.value)
+  const { map, sortedYears } = groupRatingsByYear(props.data)
 
   return sortedYears.map((year) => {
     const ratingMap = map.get(year)!
     const item: YearData = { year: String(year) }
     for (let i = 0; i < ratingKeys.length; i++) {
-      item[ratingKeys[i]] = ratingMap.get(ratingLookup[i]) ?? 0
+      item[ratingKeys[i]!] = ratingMap.get(ratingLookup[i]!) ?? 0
     }
     return item
   })

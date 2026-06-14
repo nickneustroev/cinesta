@@ -1,14 +1,24 @@
 <script setup lang="ts">
+const { data, status, load, process } = useImportData()
 
+onMounted(async () => {
+  const loaded = await load()
+  if (!loaded) await process()
+})
 </script>
 
 <template>
   <div>
-    <ChartsRatingStackedByYears />
-    <ChartsRatingShareByYears />
-    <ChartsWatchedAllByRating />
-    <ChartsWatchedThisYear />
-    <ChartsWatchedAllYears />
+    <template v-if="data">
+      <ChartsRatingStackedByYears :data="data.ratings" />
+      <ChartsRatingShareByYears :data="data.ratings" />
+      <ChartsWatchedAllByRating :data="data.ratings" />
+      <ChartsWatchedThisYear :data="data.watched" />
+      <ChartsWatchedAllYears :data="data.watched" />
+    </template>
+    <div v-else-if="status === 'loading'" class="flex items-center justify-center py-20">
+      <UIcon name="i-lucide-loader-circle" class="size-8 animate-spin text-muted" />
+    </div>
     <UPageHero
       title="Nuxt Starter Template"
       description="A production-ready starter template powered by Nuxt UI. Build beautiful, accessible, and performant applications in minutes, not hours."

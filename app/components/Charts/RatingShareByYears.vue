@@ -1,21 +1,15 @@
 <script lang="ts" setup>
 import { ratingKeys, ratingLookup, groupRatingsByYear, buildRatingCategories } from '~/utils/ratings'
-import type { RatingEntry } from '~/utils/ratings'
+import type { RatingEntry } from '~/types/import'
 
 defineOptions({
   tags: ['areacharts', 'stacked']
 })
 
-withDefaults(
-  defineProps<{
-    showTitle?: boolean
-  }>(),
-  {
-    showTitle: false
-  }
-)
-
-const { data: ratingsRaw } = await useFetch<RatingEntry[]>('/api/data/ratings')
+const props = defineProps<{
+  data: RatingEntry[]
+  showTitle?: boolean
+}>()
 
 interface YearData {
   [key: string]: string | number
@@ -23,9 +17,9 @@ interface YearData {
 }
 
 const chartData = computed(() => {
-  if (!ratingsRaw.value) return []
+  if (!props.data.length) return []
 
-  const { map, sortedYears } = groupRatingsByYear(ratingsRaw.value)
+  const { map, sortedYears } = groupRatingsByYear(props.data)
 
   return sortedYears.map((year) => {
     const ratingMap = map.get(year)!
@@ -40,13 +34,13 @@ const chartData = computed(() => {
       const remainders = pcts.map((v, i) => ({ i, r: v - Math.floor(v) }))
       remainders.sort((a, b) => b.r - a.r)
       for (let j = 0; j < Math.abs(diff); j++) {
-        rounded[remainders[j % remainders.length].i] += Math.sign(diff)
+        rounded[remainders[j % remainders.length]!.i]! += Math.sign(diff)
       }
     }
 
     const item: YearData = { year: String(year) }
     for (let i = 0; i < ratingKeys.length; i++) {
-      item[ratingKeys[i]] = rounded[i]
+      item[ratingKeys[i]!] = rounded[i]!
     }
     return item
   })

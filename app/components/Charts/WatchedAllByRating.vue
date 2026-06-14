@@ -1,27 +1,21 @@
 <script lang="ts" setup>
+import type { RatingEntry } from '~/types/import'
+
 defineOptions({
   tags: ['barcharts', 'vertical']
 })
 
-withDefaults(
-  defineProps<{
-    showTitle?: boolean
-  }>(),
-  {
-    showTitle: false
-  }
-)
-
-import type { RatingEntry } from '~/utils/ratings'
-
-const { data: ratingsRaw } = await useFetch<RatingEntry[]>('/api/data/ratings')
+const props = defineProps<{
+  data: RatingEntry[]
+  showTitle?: boolean
+}>()
 
 const chartData = computed(() => {
-  if (!ratingsRaw.value) return []
+  if (!props.data.length) return []
 
   const map = new Map<number, number>()
 
-  for (const entry of ratingsRaw.value) {
+  for (const entry of props.data) {
     map.set(entry.rating, (map.get(entry.rating) ?? 0) + 1)
   }
 
