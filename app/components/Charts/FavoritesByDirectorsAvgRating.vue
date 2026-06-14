@@ -10,24 +10,23 @@ const props = defineProps<{
   showTitle?: boolean
 }>()
 
-interface DirectorEntry {
-  director: string
-  count: number
-}
-
 const chartData = computed(() => {
   if (!props.data.length) return []
 
-  const map = new Map<string, number>()
-
+  const ratingMap = new Map<string, number[]>()
   for (const movie of props.data) {
     if (!movie.director) continue
-    map.set(movie.director, (map.get(movie.director) ?? 0) + 1)
+    const ratings = ratingMap.get(movie.director) ?? []
+    ratings.push(movie.userRating)
+    ratingMap.set(movie.director, ratings)
   }
 
-  return Array.from(map.entries())
-    .map(([director, count]) => ({ director, count }))
-    .sort((a, b) => b.count - a.count)
+  return Array.from(ratingMap.entries())
+    .map(([director, ratings]) => ({
+      director,
+      avgRating: ratings.reduce((s, r) => s + r, 0) / ratings.length
+    }))
+    .sort((a, b) => b.avgRating - a.avgRating)
     .slice(0, 30)
     .reverse()
 })
@@ -36,18 +35,16 @@ const xAxisConfig = {
   tickTextFontSize: '12px'
 } as const
 
-const yAxisConfig = {
-
-} as const
+const yAxisConfig = {} as const
 
 const chartCategories = computed(() => ({
-  count: {
-    name: 'Movies',
+  avgRating: {
+    name: 'Avg Rating',
     color: '#6366f1'
   }
 }))
 
-const xFormatter = (tick: number) => tick.toString()
+const xFormatter = (tick: number) => tick.toFixed(2)
 const yFormatter = (_tick: string, i?: number) => {
   const idx = i ?? 0
   return chartData.value[idx]?.director ?? String(_tick)
@@ -56,15 +53,15 @@ const yFormatter = (_tick: string, i?: number) => {
 
 <template>
   <ChartsChartWrapper
-    title="Top-15 directors by count (from favorite)"
+    title="Top-15 directors by avg rating w/out min (from favorite)"
     :show-title="showTitle"
   >
     <BarChart
       :data="chartData"
       orientation="horizontal"
-      :height="600"
+      :height="500"
       :categories="chartCategories"
-      :y-axis="['count']"
+      :y-axis="['avgRating']"
       :y-num-ticks="chartData.length"
       :radius="4"
       :x-grid-line="true"
