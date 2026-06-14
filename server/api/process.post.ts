@@ -126,6 +126,7 @@ async function getMovieDetails(tmdbId: number) {
 }
 
 export default defineEventHandler(async (): Promise<ImportData> => {
+  console.log('[process] ----------------------------------------')
   console.log('[process] подготовка данных началась')
 
   const rawDiary = parseCSVFile('diary.csv')
