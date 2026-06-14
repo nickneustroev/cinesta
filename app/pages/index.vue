@@ -35,6 +35,7 @@ onMounted(async () => {
     </div>
 
     <template v-if="data">
+      <ChartsFavoritesByGenres :data="data.enriched" />
       <ChartsRatingStackedByYears :data="data.ratings" />
       <ChartsRatingShareByYears :data="data.ratings" />
       <ChartsWatchedAllByRating :data="data.ratings" />
