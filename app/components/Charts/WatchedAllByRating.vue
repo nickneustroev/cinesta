@@ -14,7 +14,7 @@ withDefaults(
 
 import type { RatingEntry } from '~/utils/ratings'
 
-const { data: ratingsRaw } = await useFetch<RatingEntry[]>('/data/ratings.json', { server: false })
+const { data: ratingsRaw } = await useFetch<RatingEntry[]>('/api/data/ratings')
 
 const chartData = computed(() => {
   if (!ratingsRaw.value) return []

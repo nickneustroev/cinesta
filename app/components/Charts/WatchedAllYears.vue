@@ -16,7 +16,7 @@ import type { WatchedEntry } from '~/utils/watched'
 
 const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-const { data: watchedRaw } = await useFetch<WatchedEntry[]>('/data/watched.json', { server: false })
+const { data: watchedRaw } = await useFetch<WatchedEntry[]>('/api/data/watched')
 
 interface YearMonthEntry {
   label: string

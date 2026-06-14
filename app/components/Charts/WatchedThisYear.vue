@@ -19,7 +19,7 @@ const now = new Date()
 const currentYear = now.getFullYear()
 const currentMonth = now.getMonth()
 
-const { data: watchedRaw } = await useFetch<WatchedEntry[]>('/data/watched.json', { server: false })
+const { data: watchedRaw } = await useFetch<WatchedEntry[]>('/api/data/watched')
 
 const chartData = computed(() => {
   if (!watchedRaw.value) return []

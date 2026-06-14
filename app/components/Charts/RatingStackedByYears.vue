@@ -15,7 +15,7 @@ withDefaults(
   }
 )
 
-const { data: ratingsRaw } = await useFetch<RatingEntry[]>('/data/ratings.json', { server: false })
+const { data: ratingsRaw } = await useFetch<RatingEntry[]>('/api/data/ratings')
 
 interface YearData {
   [key: string]: string | number
