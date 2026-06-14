@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const DATA_DIR = join(__dirname, '..', 'data', 'letterboxd-nikvkino-2026-06-12-10-11-utc')
-const OUT_DIR = join(__dirname, '..', 'public', 'data')
+const OUT_DIR = join(__dirname, '..', 'server', 'data')
 
 function parseCSV(text) {
   const lines = []
