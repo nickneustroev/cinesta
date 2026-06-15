@@ -89,6 +89,12 @@ const cards = computed(() => {
               :alt="card.director"
               class="h-14 w-10 rounded object-cover"
             />
+            <div
+              v-else
+              class="h-14 w-10 rounded bg-accented flex items-center justify-center text-[10px] text-muted leading-tight text-center"
+            >
+              No<br>photo
+            </div>
             <div class="min-w-0">
               <div :class="pageCardUi.title()">
                 {{ card.director }}
