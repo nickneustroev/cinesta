@@ -29,20 +29,20 @@ interface DirectorCard {
   director: string
   count: number
   avgRating: number
-  movies: string[]
+  movies: { title: string; year: number; userRating: number }[]
 }
 
 const cards = computed(() => {
   if (!props.data.length) return []
 
-  const map = new Map<string, { count: number, totalRating: number, movies: string[] }>()
+  const map = new Map<string, { count: number; totalRating: number; movies: { title: string; year: number; userRating: number }[] }>()
 
   for (const movie of props.data) {
     if (!movie.director) continue
     const entry = map.get(movie.director) ?? { count: 0, totalRating: 0, movies: [] }
     entry.count++
     entry.totalRating += movie.userRating
-    entry.movies.push(movie.title)
+    entry.movies.push({ title: movie.title, year: movie.year, userRating: movie.userRating })
     map.set(movie.director, entry)
   }
 
@@ -80,7 +80,7 @@ const cards = computed(() => {
               v-for="(movie, mi) in card.movies"
               :key="mi"
             >
-              {{ movie }}
+              {{ movie.title }} <span class="text-muted">({{ movie.year }}) · {{ movie.userRating }}</span>
             </li>
           </ul>
         </template>
