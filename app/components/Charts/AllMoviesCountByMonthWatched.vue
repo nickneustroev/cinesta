@@ -63,7 +63,7 @@ const yFormatter = (tick: number) => tick.toString()
 </script>
 
 <template>
-  <ChartsChartWrapper title="Watched All Years" :show-title="showTitle">
+  <ChartsChartWrapper title="All Movies Count By Month Watched" :show-title="showTitle">
     <BarChart
       :data="chartData"
       :height="300"

@@ -7,7 +7,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div>
+  <UContainer>
     <div
       v-if="status !== 'loading'"
       class="flex justify-center py-12"
@@ -44,8 +44,7 @@ onMounted(async () => {
       <ChartsRatingStackedByYears :data="data.ratings" />
       <ChartsRatingShareByYears :data="data.ratings" />
       <ChartsWatchedAllByRating :data="data.ratings" />
-      <ChartsWatchedThisYear :data="data.watched" />
-      <ChartsWatchedAllYears :data="data.watched" />
+      <ChartsAllMoviesCountByMonthWatched :data="data.watched" />
     </template>
-  </div>
+  </UContainer>
 </template>
