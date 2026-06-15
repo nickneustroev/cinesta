@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { tv } from 'tailwind-variants'
+import { tv } from '@nuxt/ui/utils/tv'
 import type { EnrichedMovie } from '~/types/import'
 import theme from '#build/ui/page-card'
 
@@ -12,7 +12,7 @@ const pageCardUi = computed(() =>
     to: false,
     title: false,
     highlight: false,
-    spotlight: false,
+    spotlight: false
   })
 )
 
@@ -35,7 +35,7 @@ interface DirectorCard {
 const cards = computed(() => {
   if (!props.data.length) return []
 
-  const map = new Map<string, { count: number; totalRating: number; movies: string[] }>()
+  const map = new Map<string, { count: number, totalRating: number, movies: string[] }>()
 
   for (const movie of props.data) {
     if (!movie.director) continue
