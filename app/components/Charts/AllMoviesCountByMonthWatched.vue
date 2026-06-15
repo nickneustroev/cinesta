@@ -45,7 +45,7 @@ const chartData = computed(() => {
   for (const [key, count] of sorted) {
     const [year, monthNum] = key.split('-')
     const monthName = shortMonths[Number.parseInt(monthNum!, 10) - 1]
-    result.push({ label: `${year} ${monthName ?? ''}`, count })
+    result.push({ label: `${year}\n${monthName ?? ''}`, count })
   }
 
   return result
