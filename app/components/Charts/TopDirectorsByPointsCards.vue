@@ -37,6 +37,7 @@ interface DirectorCard {
   photo: string | null
   count: number
   points: number
+  pointsBreakdown: string
   movies: { title: string, year: number, userRating: number }[]
 }
 
@@ -45,14 +46,16 @@ const TMDB_IMG_BASE = 'https://image.tmdb.org/t/p/w185'
 const cards = computed(() => {
   if (!props.data.length) return []
 
-  const map = new Map<string, { photo: string | null, count: number, points: number, movies: { title: string, year: number, userRating: number }[] }>()
+  const map = new Map<string, { photo: string | null, count: number, points: number, breakdownParts: string[], movies: { title: string, year: number, userRating: number }[] }>()
 
   for (const movie of props.data) {
     for (const d of movie.directors) {
-      const entry = map.get(d.name) ?? { photo: d.photo, count: 0, points: 0, movies: [] }
+      const entry = map.get(d.name) ?? { photo: d.photo, count: 0, points: 0, breakdownParts: [] as string[], movies: [] }
       if (!entry.photo) entry.photo = d.photo
       entry.count++
-      entry.points += (movie.userRating * BOOST) ** 2
+      const contribution = (movie.userRating * BOOST) ** 2
+      entry.points += contribution
+      entry.breakdownParts.push(`${movie.title} (${movie.userRating}² = ${contribution})`)
       entry.movies.push({ title: movie.title, year: movie.year, userRating: movie.userRating })
       map.set(d.name, entry)
     }
@@ -64,6 +67,7 @@ const cards = computed(() => {
       photo: entry.photo,
       count: entry.count,
       points: entry.points,
+      pointsBreakdown: entry.breakdownParts.join(' + '),
       movies: entry.movies.sort((a, b) => b.userRating - a.userRating || b.year - a.year)
     }))
     .sort((a, b) => b.points - a.points)
@@ -99,7 +103,10 @@ const cards = computed(() => {
               <div :class="pageCardUi.title()">
                 {{ card.director }}
               </div>
-              <div :class="pageCardUi.description()">
+              <div
+                :class="pageCardUi.description()"
+                :title="card.pointsBreakdown"
+              >
                 Points: {{ card.points }}
               </div>
             </div>
