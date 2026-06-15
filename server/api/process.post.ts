@@ -100,14 +100,17 @@ async function searchMovie(title: string, year: number): Promise<any> {
 
   const byPop = (a: any, b: any) => (b.popularity ?? 0) - (a.popularity ?? 0)
 
-  const candidates = data.results
-    .filter((r: any) => {
-      const rYear = r.release_date ? parseInt(r.release_date.split('-')[0], 10) : null
-      return rYear && Math.abs(rYear - year) <= 1
-    })
-    .sort(byPop)
+  const candidates = data.results.filter((r: any) => {
+    const rYear = r.release_date ? parseInt(r.release_date.split('-')[0], 10) : null
+    return rYear && Math.abs(rYear - year) <= 1
+  })
 
-  if (candidates.length) return candidates[0]
+  const exact = candidates
+    .filter((r: any) => r.title.toLowerCase() === title.toLowerCase())
+    .sort(byPop)
+  if (exact.length) return exact[0]
+
+  if (candidates.length) return candidates.sort(byPop)[0]
 
   return data.results.sort(byPop)[0]
 }
