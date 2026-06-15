@@ -46,15 +46,7 @@ onMounted(async () => {
           :limit="8"
           link="/directors?tab=highest"
         />
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <ChartsFavoritesByDirectorsPoints :data="data.enriched" />
-          <ChartsFavoritesByDirectors :data="data.enriched" />
-        </div>
         <ChartsFavoritesByGenres :data="data.enriched" />
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <ChartsFavoritesByDirectorsAvgRating :data="data.enriched" />
-          <ChartsFavoritesByDirectorsAvgRatingMin2 :data="data.enriched" />
-        </div>
         <ChartsGenreShareByYears :data="data.enriched" />
         <ChartsGenreShareByWatchedYear :data="data.enriched" />
         <ChartsRatingStackedByYears :data="data.ratings" />
