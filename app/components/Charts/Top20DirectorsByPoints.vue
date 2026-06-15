@@ -29,19 +29,23 @@ const props = defineProps<{
 
 interface DirectorCard {
   director: string
+  photo: string | null
   count: number
   points: number
   movies: { title: string, year: number, userRating: number }[]
 }
 
+const TMDB_IMG_BASE = 'https://image.tmdb.org/t/p/w185'
+
 const cards = computed(() => {
   if (!props.data.length) return []
 
-  const map = new Map<string, { count: number, points: number, movies: { title: string, year: number, userRating: number }[] }>()
+  const map = new Map<string, { photo: string | null, count: number, points: number, movies: { title: string, year: number, userRating: number }[] }>()
 
   for (const movie of props.data) {
     for (const d of movie.directors) {
-      const entry = map.get(d.name) ?? { count: 0, points: 0, movies: [] }
+      const entry = map.get(d.name) ?? { photo: d.photo, count: 0, points: 0, movies: [] }
+      if (!entry.photo) entry.photo = d.photo
       entry.count++
       entry.points += (movie.userRating * BOOST) ** 2
       entry.movies.push({ title: movie.title, year: movie.year, userRating: movie.userRating })
@@ -52,6 +56,7 @@ const cards = computed(() => {
   return Array.from(map.entries())
     .map(([director, entry]) => ({
       director,
+      photo: entry.photo,
       count: entry.count,
       points: entry.points,
       movies: entry.movies.sort((a, b) => b.userRating - a.userRating || b.year - a.year)
@@ -72,11 +77,21 @@ const cards = computed(() => {
         :key="index"
       >
         <template #body>
-          <div :class="pageCardUi.title()">
-            {{ card.director }}
-          </div>
-          <div :class="pageCardUi.description()">
-            Points: {{ card.points }}
+          <div class="flex items-center gap-3">
+            <img
+              v-if="card.photo"
+              :src="`${TMDB_IMG_BASE}${card.photo}`"
+              :alt="card.director"
+              class="h-14 w-10 rounded object-cover"
+            />
+            <div class="min-w-0">
+              <div :class="pageCardUi.title()">
+                {{ card.director }}
+              </div>
+              <div :class="pageCardUi.description()">
+                Points: {{ card.points }}
+              </div>
+            </div>
           </div>
           <ul class="mt-2 list-inside list-disc">
             <li
