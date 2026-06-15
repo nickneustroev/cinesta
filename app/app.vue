@@ -32,7 +32,12 @@ useSeoMeta({
           <AppLogo class="w-auto h-6 shrink-0" />
         </NuxtLink>
 
-        <TemplateMenu />
+        <UNavigationMenu
+          :items="[
+            { label: 'Home', to: '/' },
+            { label: 'Directors', to: '/directors' }
+          ]"
+        />
       </template>
 
       <template #right>

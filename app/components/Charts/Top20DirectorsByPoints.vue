@@ -22,10 +22,14 @@ defineOptions({
 
 const BOOST = 1
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   data: EnrichedMovie[]
   showTitle?: boolean
-}>()
+  title?: string
+  limit?: number
+}>(), {
+  limit: 20
+})
 
 interface DirectorCard {
   director: string
@@ -62,14 +66,14 @@ const cards = computed(() => {
       movies: entry.movies.sort((a, b) => b.userRating - a.userRating || b.year - a.year)
     }))
     .sort((a, b) => b.points - a.points)
-    .slice(0, 20)
+    .slice(0, props.limit)
 })
 </script>
 
 <template>
   <div class="mx-auto pt-12">
     <h3 class="mb-6 text-2xl font-semibold">
-      Top-20 Directors by Points
+      {{ title ?? `Top-${limit} Directors by Points` }}
     </h3>
     <UPageGrid :ui="{ base: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4' }">
       <UPageCard
