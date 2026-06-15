@@ -29,13 +29,13 @@ interface DirectorCard {
   director: string
   count: number
   avgRating: number
-  movies: { title: string; year: number; userRating: number }[]
+  movies: { title: string, year: number, userRating: number }[]
 }
 
 const cards = computed(() => {
   if (!props.data.length) return []
 
-  const map = new Map<string, { count: number; totalRating: number; movies: { title: string; year: number; userRating: number }[] }>()
+  const map = new Map<string, { count: number, totalRating: number, movies: { title: string, year: number, userRating: number }[] }>()
 
   for (const movie of props.data) {
     if (!movie.director) continue
@@ -51,7 +51,7 @@ const cards = computed(() => {
       director,
       count: entry.count,
       avgRating: entry.totalRating / entry.count,
-      movies: entry.movies
+      movies: entry.movies.sort((a, b) => b.userRating - a.userRating || b.year - a.year)
     }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 15)
@@ -63,7 +63,7 @@ const cards = computed(() => {
     <h3 class="mb-6 text-2xl font-semibold">
       Top-15 Directors (from favorite)
     </h3>
-    <UPageGrid>
+    <UPageGrid :ui="{ base: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4' }">
       <UPageCard
         v-for="(card, index) in cards"
         :key="index"
