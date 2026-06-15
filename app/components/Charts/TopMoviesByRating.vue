@@ -32,7 +32,15 @@ const cards = computed(() =>
       :name="movie.title"
       :description="`Rating: ${movie.userRating}`"
     >
-      <div class="flex flex-wrap gap-2">
+      <div class="flex gap-4">
+        <UUser
+          v-for="d in movie.directors"
+          :key="d.name"
+          :name="d.name"
+          :avatar="d.photo ? { src: `https://image.tmdb.org/t/p/w45${d.photo}` } : undefined"
+        />
+      </div>
+      <div class="flex flex-wrap gap-2 mt-3">
         <UBadge
           v-for="genre in movie.genres"
           :key="genre"

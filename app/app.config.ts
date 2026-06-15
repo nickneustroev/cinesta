@@ -43,7 +43,20 @@ export default defineAppConfig({
         trigger: 'cursor-pointer'
       }
     },
-
+    user: {
+      slots: {
+        root: 'bg-elevated rounded-full pe-3',
+        name: 'font-thin'
+      },
+      variants: {
+        to: {
+          false: {
+            name: '',
+            description: ''
+          }
+        }
+      }
+    },
     button: {
       slots: {
         base: 'rounded-full cursor-pointer'
