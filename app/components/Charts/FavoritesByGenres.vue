@@ -2,15 +2,20 @@
 import type { EnrichedMovie } from '~/types/import'
 
 defineOptions({
-  tags: ['barcharts', 'vertical']
+  tags: ['barcharts', 'withvaluelabel']
 })
+
+type DataProps = {
+  genre?: string
+  count?: number
+}
 
 const props = defineProps<{
   data: EnrichedMovie[]
   showTitle?: boolean
 }>()
 
-const chartData = computed(() => {
+const chartData = computed((): DataProps[] => {
   if (!props.data.length) return []
 
   const map = new Map<string, number>()
@@ -27,10 +32,6 @@ const chartData = computed(() => {
     .slice(0, 15)
 })
 
-const xAxisConfig = {
-  tickTextFontSize: '12px',
-} as const
-
 const chartCategories = computed(() => ({
   count: {
     name: 'Movies',
@@ -40,22 +41,38 @@ const chartCategories = computed(() => ({
 
 const xFormatter = (i: number): string => chartData.value[i]?.genre ?? ''
 const yFormatter = (tick: number) => tick.toString()
+
+const chartOptions = {
+  valueLabel: {
+    label: (d: { y: number }) => d.y.toString(),
+    labelSpacing: 16,
+    labelFontSize: 12,
+    color: 'var(--ui-text)'
+  },
+  xAxis: 'genre' as keyof DataProps,
+  groupPadding: 0,
+  barPadding: 0.2
+}
 </script>
 
 <template>
-  <ChartsChartWrapper title="Top-15 genres (from favorite)" :show-title="showTitle">
+  <ChartsChartWrapper
+    title="Top-15 genres (from favorite)"
+    :show-title="showTitle"
+  >
     <BarChart
       :data="chartData"
-      :height="300"
       :categories="chartCategories"
+      :height="300"
       :y-axis="['count']"
       :x-num-ticks="chartData.length"
       :radius="4"
       :y-grid-line="true"
       :x-formatter="xFormatter"
-      :x-axis-config="xAxisConfig"
       :y-formatter="yFormatter"
+      :x-axis-config="{ tickTextFontSize: '14px' }"
       :legend-position="LegendPosition.TopRight"
+      v-bind="chartOptions"
     />
   </ChartsChartWrapper>
 </template>
