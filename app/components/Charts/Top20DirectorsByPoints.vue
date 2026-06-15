@@ -20,6 +20,8 @@ defineOptions({
   tags: ['cards', 'page']
 })
 
+const BOOST = 1
+
 const props = defineProps<{
   data: EnrichedMovie[]
   showTitle?: boolean
@@ -28,20 +30,20 @@ const props = defineProps<{
 interface DirectorCard {
   director: string
   count: number
-  avgRating: number
+  points: number
   movies: { title: string, year: number, userRating: number }[]
 }
 
 const cards = computed(() => {
   if (!props.data.length) return []
 
-  const map = new Map<string, { count: number, totalRating: number, movies: { title: string, year: number, userRating: number }[] }>()
+  const map = new Map<string, { count: number, points: number, movies: { title: string, year: number, userRating: number }[] }>()
 
   for (const movie of props.data) {
     if (!movie.director) continue
-    const entry = map.get(movie.director) ?? { count: 0, totalRating: 0, movies: [] }
+    const entry = map.get(movie.director) ?? { count: 0, points: 0, movies: [] }
     entry.count++
-    entry.totalRating += movie.userRating
+    entry.points += (movie.userRating * BOOST) ** 2
     entry.movies.push({ title: movie.title, year: movie.year, userRating: movie.userRating })
     map.set(movie.director, entry)
   }
@@ -50,18 +52,18 @@ const cards = computed(() => {
     .map(([director, entry]) => ({
       director,
       count: entry.count,
-      avgRating: entry.totalRating / entry.count,
+      points: entry.points,
       movies: entry.movies.sort((a, b) => b.userRating - a.userRating || b.year - a.year)
     }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 15)
+    .sort((a, b) => b.points - a.points)
+    .slice(0, 20)
 })
 </script>
 
 <template>
   <div class="mx-auto pt-12">
     <h3 class="mb-6 text-2xl font-semibold">
-      Top-15 Directors (from favorite)
+      Top-20 Directors by Points
     </h3>
     <UPageGrid :ui="{ base: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4' }">
       <UPageCard
@@ -73,7 +75,7 @@ const cards = computed(() => {
             {{ card.director }}
           </div>
           <div :class="pageCardUi.description()">
-            Movies: {{ card.count }} · Avg: {{ card.avgRating.toFixed(2) }}
+            Points: {{ card.points }}
           </div>
           <ul class="mt-2 list-inside list-disc">
             <li
