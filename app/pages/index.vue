@@ -35,23 +35,25 @@ onMounted(async () => {
     </div>
 
     <template v-if="data">
-      <ChartsTop20DirectorsByPoints :data="data.enriched" />
-      <ChartsTop20DirectorsByHighestRating :data="data.enriched" />
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <ChartsFavoritesByDirectorsPoints :data="data.enriched" />
-        <ChartsFavoritesByDirectors :data="data.enriched" />
+      <div class="flex flex-col gap-y-8">
+        <ChartsTop20DirectorsByPoints :data="data.enriched" />
+        <ChartsTop20DirectorsByHighestRating :data="data.enriched" />
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <ChartsFavoritesByDirectorsPoints :data="data.enriched" />
+          <ChartsFavoritesByDirectors :data="data.enriched" />
+        </div>
+        <ChartsFavoritesByGenres :data="data.enriched" />
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <ChartsFavoritesByDirectorsAvgRating :data="data.enriched" />
+          <ChartsFavoritesByDirectorsAvgRatingMin2 :data="data.enriched" />
+        </div>
+        <ChartsGenreShareByYears :data="data.enriched" />
+        <ChartsGenreShareByWatchedYear :data="data.enriched" />
+        <ChartsRatingStackedByYears :data="data.ratings" />
+        <ChartsRatingShareByYears :data="data.ratings" />
+        <ChartsWatchedAllByRating :data="data.ratings" />
+        <ChartsAllMoviesCountByMonthWatched :data="data.watched" />
       </div>
-      <ChartsFavoritesByGenres :data="data.enriched" />
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <ChartsFavoritesByDirectorsAvgRating :data="data.enriched" />
-        <ChartsFavoritesByDirectorsAvgRatingMin2 :data="data.enriched" />
-      </div>
-      <ChartsGenreShareByYears :data="data.enriched" />
-      <ChartsGenreShareByWatchedYear :data="data.enriched" />
-      <ChartsRatingStackedByYears :data="data.ratings" />
-      <ChartsRatingShareByYears :data="data.ratings" />
-      <ChartsWatchedAllByRating :data="data.ratings" />
-      <ChartsAllMoviesCountByMonthWatched :data="data.watched" />
     </template>
   </UContainer>
 </template>

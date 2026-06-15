@@ -11,15 +11,20 @@ withDefaults(
 </script>
 
 <template>
-  <div
-    class="w-full mx-auto space-y-2 rounded-lg pt-12"
-    :class="showTitle ? 'p-6' : ''"
+  <UCard
+    :ui="{
+      root: 'w-full mx-auto'
+
+    }"
   >
-    <div class="flex items-center justify-between">
-      <h3 class="text-2xl font-semibold">
-        {{ title }}
-      </h3>
-    </div>
+    <template #header>
+      <div class="flex items-center justify-between">
+        <h3 class="text-2xl font-semibold">
+          {{ title }}
+        </h3>
+      </div>
+    </template>
+
     <slot />
-  </div>
+  </UCard>
 </template>
