@@ -36,8 +36,8 @@ onMounted(async () => {
 
     <template v-if="data">
       <div class="flex flex-col gap-y-8">
-        <ChartsTop20DirectorsByPoints :data="data.enriched" />
-        <ChartsTop20DirectorsByHighestRating :data="data.enriched" />
+        <ChartsTopDirectorsByPointsCards :data="data.enriched" :limit="8" link="/directors?tab=points" />
+        <ChartsTopDirectorsByHighestRatingCards :data="data.enriched" :limit="8" link="/directors?tab=highest" />
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <ChartsFavoritesByDirectorsPoints :data="data.enriched" />
           <ChartsFavoritesByDirectors :data="data.enriched" />

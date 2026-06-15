@@ -20,18 +20,24 @@ defineOptions({
   tags: ['cards', 'page']
 })
 
-const props = defineProps<{
+const BOOST = 1
+
+const props = withDefaults(defineProps<{
   data: EnrichedMovie[]
   showTitle?: boolean
-}>()
+  title?: string
+  limit?: number
+  link?: string
+}>(), {
+  limit: 20
+})
 
 interface DirectorCard {
   director: string
   photo: string | null
-  maxRating: number
-  topCount: number
-  topMaxYear: number
-  movies: { title: string; year: number; userRating: number }[]
+  count: number
+  points: number
+  movies: { title: string, year: number, userRating: number }[]
 }
 
 const TMDB_IMG_BASE = 'https://image.tmdb.org/t/p/w185'
@@ -39,41 +45,36 @@ const TMDB_IMG_BASE = 'https://image.tmdb.org/t/p/w185'
 const cards = computed(() => {
   if (!props.data.length) return []
 
-  const map = new Map<string, { photo: string | null; maxRating: number; movies: { title: string; year: number; userRating: number }[] }>()
+  const map = new Map<string, { photo: string | null, count: number, points: number, movies: { title: string, year: number, userRating: number }[] }>()
 
   for (const movie of props.data) {
     for (const d of movie.directors) {
-      const entry = map.get(d.name) ?? { photo: d.photo, maxRating: 0, movies: [] }
+      const entry = map.get(d.name) ?? { photo: d.photo, count: 0, points: 0, movies: [] }
       if (!entry.photo) entry.photo = d.photo
+      entry.count++
+      entry.points += (movie.userRating * BOOST) ** 2
       entry.movies.push({ title: movie.title, year: movie.year, userRating: movie.userRating })
-      if (movie.userRating > entry.maxRating) {
-        entry.maxRating = movie.userRating
-      }
       map.set(d.name, entry)
     }
   }
 
   return Array.from(map.entries())
-    .map(([director, entry]) => {
-      const topMovies = entry.movies.filter(m => m.userRating === entry.maxRating)
-      return {
-        director,
-        photo: entry.photo,
-        maxRating: entry.maxRating,
-        topCount: topMovies.length,
-        topMaxYear: Math.max(...topMovies.map(m => m.year)),
-        movies: topMovies
-      }
-    })
-    .sort((a, b) => b.maxRating - a.maxRating || b.topCount - a.topCount || b.topMaxYear - a.topMaxYear)
-    .slice(0, 20)
+    .map(([director, entry]) => ({
+      director,
+      photo: entry.photo,
+      count: entry.count,
+      points: entry.points,
+      movies: entry.movies.sort((a, b) => b.userRating - a.userRating || b.year - a.year)
+    }))
+    .sort((a, b) => b.points - a.points)
+    .slice(0, props.limit)
 })
 </script>
 
 <template>
-  <div class="mx-auto pt-12">
+  <div class="mx-auto">
     <h3 class="mb-6 text-2xl font-semibold">
-      Top-20 Directors by Highest Movie Rating
+      {{ title ?? `Top-${limit} Directors by Points` }}
     </h3>
     <UPageGrid :ui="{ base: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4' }">
       <UPageCard
@@ -93,7 +94,7 @@ const cards = computed(() => {
                 {{ card.director }}
               </div>
               <div :class="pageCardUi.description()">
-                Highest: {{ card.maxRating }}
+                Points: {{ card.points }}
               </div>
             </div>
           </div>
@@ -108,5 +109,17 @@ const cards = computed(() => {
         </template>
       </UPageCard>
     </UPageGrid>
+
+    <div
+      v-if="props.link"
+      class="flex justify-center mt-8"
+    >
+      <UButton
+        :to="props.link"
+        size="xl"
+      >
+        Смотреть всех
+      </UButton>
+    </div>
   </div>
 </template>
