@@ -12,7 +12,7 @@ withDefaults(
 
 <template>
   <div
-    class="mx-auto space-y-2 rounded-lg pt-12"
+    class="w-full mx-auto space-y-2 rounded-lg pt-12"
     :class="showTitle ? 'p-6' : ''"
   >
     <div class="flex items-center justify-between">

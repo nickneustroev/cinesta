@@ -48,8 +48,7 @@ const chartCategories = computed(() => ({
 const xFormatter = (tick: number) => String(tick)
 const yFormatter = (_tick: string, i?: number) => {
   const idx = i ?? 0
-  const d = chartData.value[idx]
-  return d ? `${d.director} (${Math.round(d.points)})` : String(_tick)
+  return chartData.value[idx]?.director ?? String(_tick)
 }
 </script>
 
@@ -67,6 +66,7 @@ const yFormatter = (_tick: string, i?: number) => {
       :y-num-ticks="chartData.length"
       :radius="4"
       :x-grid-line="true"
+      :x-num-ticks="10"
       :x-formatter="xFormatter"
       :x-axis-config="xAxisConfig"
       :y-formatter="yFormatter"

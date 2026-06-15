@@ -68,6 +68,7 @@ const yFormatter = (_tick: string, i?: number) => {
       :y-num-ticks="chartData.length"
       :radius="4"
       :x-grid-line="true"
+      :x-num-ticks="8"
       :x-formatter="xFormatter"
       :x-axis-config="xAxisConfig"
       :y-formatter="yFormatter"
