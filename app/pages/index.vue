@@ -39,7 +39,7 @@ onMounted(async () => {
         <h3 class="text-2xl font-semibold">
           Top-8 Movies by Rating
         </h3>
-        <ChartsTopMoviesByRating :data="data.enriched" :import-date="data.stats.importDate" />
+        <ChartsTopMoviesByRating :data="data.enriched" :import-date="data.stats.importDate" link="/movies?tab=ratings" />
 
         <ChartsTopDirectorsByPointsCards
           :data="data.enriched"

@@ -8,6 +8,7 @@ const props = defineProps<{
   limit?: number
   title?: string
   showMore?: number
+  link?: string
 }>()
 
 const visibleCount = ref(props.limit ?? 8)
@@ -101,6 +102,17 @@ function formatDate(dateStr: string | null): string {
         @click="showMoreCards"
       >
         Показать еще {{ showMore }}
+      </UButton>
+    </div>
+    <div
+      v-if="link"
+      class="flex justify-center mt-8"
+    >
+      <UButton
+        :to="link"
+        size="xl"
+      >
+        Смотреть всех
       </UButton>
     </div>
   </div>
