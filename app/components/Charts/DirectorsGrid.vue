@@ -25,6 +25,7 @@ interface DirectorCard {
   description: string
   descriptionTitle?: string
   movies: { title: string, year: number, userRating: number }[]
+  _sortValue: number
 }
 
 const visibleCount = ref(props.limit)
@@ -62,18 +63,18 @@ function computeByPoints(): DirectorCard[] {
   }
 
   return Array.from(map.entries())
-    .map(([director, entry]) => ({
-      director,
-      photo: entry.photo,
-      description: `Points: ${Math.round(entry.points / 10)}`,
-      descriptionTitle: entry.breakdownParts.join(' + ') + ` = ${Math.round(entry.points)} → /10 → ${Math.round(entry.points / 10)}`,
-      movies: entry.movies.sort((a, b) => b.userRating - a.userRating || b.year - a.year)
-    }))
-    .sort((a, b) => {
-      const aPoints = Number(a.description.split(' ')[1])
-      const bPoints = Number(b.description.split(' ')[1])
-      return bPoints - aPoints
+    .map(([director, entry]) => {
+      const displayPoints = Math.round(entry.points / 10)
+      return {
+        director,
+        photo: entry.photo,
+        description: `${t('directors_grid.points_label')}: ${displayPoints}`,
+        descriptionTitle: entry.breakdownParts.join(' + ') + ` = ${Math.round(entry.points)} → /10 → ${displayPoints}`,
+        movies: entry.movies.sort((a, b) => b.userRating - a.userRating || b.year - a.year),
+        _sortValue: entry.points
+      }
     })
+    .sort((a, b) => b._sortValue - a._sortValue)
 }
 
 function computeByHighest(): DirectorCard[] {
@@ -98,7 +99,8 @@ function computeByHighest(): DirectorCard[] {
         director,
         photo: entry.photo,
         description: `Highest: ${entry.maxRating}`,
-        movies: topMovies
+        movies: topMovies,
+        _sortValue: 0
       }
     })
     .sort((a, b) => {
