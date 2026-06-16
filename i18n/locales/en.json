@@ -8,7 +8,7 @@
     "run": "Run",
     "run_again": "Run again",
     "loading": "Preparing data...",
-    "top_movies": "Top-8 Movies by Rating",
+    "top_movies": "Top Movies by Rating",
     "last_movies_watched": "Last Movies Watched (from favorite)"
   },
   "pages": {
