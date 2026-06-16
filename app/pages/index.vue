@@ -39,7 +39,15 @@ onMounted(async () => {
         <h3 class="text-2xl font-semibold">
           Top-8 Movies by Rating
         </h3>
-        <ChartsTopMoviesByRating :data="data.enriched" :import-date="data.stats.importDate" link="/movies?tab=ratings" />
+        <ChartsMoviesGrid :data="data.enriched" :import-date="data.stats.importDate" link="/movies?tab=ratings" />
+
+        <ChartsMoviesGrid
+          :data="data.enriched"
+          :import-date="data.stats.importDate"
+          title="Last Movies Watched (from favorite)"
+          sort-by="dateRated"
+          :limit="8"
+        />
 
         <ChartsTopDirectorsByPointsCards
           :data="data.enriched"

@@ -43,7 +43,7 @@ watch(activeTab, (tab) => {
       />
 
       <div class="flex flex-col gap-y-8 pt-8">
-        <ChartsTopMoviesByRating
+        <ChartsMoviesGrid
           v-if="activeTab === 'ratings'"
           :data="data.enriched"
           :import-date="data.stats.importDate"

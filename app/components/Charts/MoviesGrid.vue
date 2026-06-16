@@ -8,16 +8,24 @@ const props = defineProps<{
   title?: string
   showMore?: number
   link?: string
+  sortBy?: 'rating' | 'dateRated'
 }>()
 
 const visibleCount = ref(props.limit ?? 8)
 
-const cards = computed(() =>
-  props.data
-    .slice()
-    .sort((a, b) => b.userRating - a.userRating)
-    .slice(0, visibleCount.value)
-)
+const cards = computed(() => {
+  const sorted = [...props.data]
+  if (props.sortBy === 'dateRated') {
+    sorted.sort((a, b) => {
+      if (!a.dateRated) return 1
+      if (!b.dateRated) return -1
+      return b.dateRated.localeCompare(a.dateRated)
+    })
+  } else {
+    sorted.sort((a, b) => b.userRating - a.userRating)
+  }
+  return sorted.slice(0, visibleCount.value)
+})
 
 const hasMore = computed(() => visibleCount.value < props.data.length)
 
