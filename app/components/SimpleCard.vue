@@ -12,7 +12,7 @@ defineProps<{
 <template>
   <UCard :ui="{ header: 'flex items-center gap-3' }">
     <template #header>
-      <NuxtImg
+      <img
         v-if="photo"
         :src="`${TMDB_IMG_BASE}${photo}`"
         :alt="name"

@@ -4,16 +4,11 @@ export default defineNuxtConfig({
   modules: [
     '@nuxt/eslint',
     '@nuxt/ui',
-    '@nuxt/image',
     'nuxt-charts'
   ],
 
   devtools: {
     enabled: true
-  },
-
-  image: {
-    domains: ['image.tmdb.org']
   },
 
   css: ['~/assets/css/main.css'],
@@ -23,6 +18,12 @@ export default defineNuxtConfig({
   },
 
   compatibilityDate: '2025-01-15',
+
+  vite: {
+    optimizeDeps: {
+      include: ['idb-keyval']
+    }
+  },
 
   eslint: {
     config: {
