@@ -37,12 +37,13 @@ function switchLocale(code: string) {
         <div class="flex items-center gap-6">
           <NuxtLink
             to="/"
-            class="text-xl font-bold shrink-0"
+            class="text-2xl font-bold shrink-0"
           >
             Cinecha
           </NuxtLink>
 
           <UNavigationMenu
+            :ui="{ linkLabel: 'text-base' }"
             :items="[
               { label: $t('nav.home'), to: '/' },
               { label: $t('nav.movies'), to: '/movies' },
