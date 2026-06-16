@@ -8,10 +8,12 @@ const uploadedFile = ref<File | null>(null)
 const showUpload = ref(false)
 const estimate = ref<{ count: number, seconds: number } | null>(null)
 const remainingSeconds = ref(0)
+const initialLoading = ref(true)
 let countdownTimer: ReturnType<typeof setInterval> | null = null
 
 onMounted(async () => {
   await load()
+  initialLoading.value = false
 })
 
 onUnmounted(() => {
@@ -92,6 +94,17 @@ async function onFileSelect(file: File | null | undefined) {
     :class="!data && status === 'idle' ? 'flex flex-col min-h-[calc(100dvh-var(--ui-header-height,64px))]' : ''"
   >
     <div
+      v-if="initialLoading"
+      class="flex flex-col items-center justify-center gap-4 py-20"
+      :class="!data && status === 'idle' ? 'flex-1' : ''"
+    >
+      <UIcon
+        name="i-lucide-loader-circle"
+        class="size-8 animate-spin text-muted"
+      />
+    </div>
+    <div
+      v-if="!initialLoading"
       class="flex flex-col items-center gap-6 py-8"
       :class="!data && status === 'idle' ? 'flex-1 justify-center' : ''"
     >
