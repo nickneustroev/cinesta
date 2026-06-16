@@ -8,7 +8,9 @@
 
 - NEVER commit unless the user explicitly says "коммит" or "commit". Ask first.
 
-## Styling Preferences
+## Edit Rules
+
+- When using the `edit` tool, always include 2-3 lines of surrounding context in both `oldString` and `newString` to guarantee a unique match and avoid "Found multiple matches" errors.
 
 - If this project uses Tailwind CSS, prefer Tailwind utility classes for basic styling changes.
 - Do not suggest plain CSS or scoped CSS solutions for routine typography, spacing, sizing, layout, or color adjustments when the same result can be expressed cleanly with Tailwind classes.

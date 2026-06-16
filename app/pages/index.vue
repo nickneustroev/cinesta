@@ -35,8 +35,14 @@ async function onFileSelect(file: File | null | undefined) {
 </script>
 
 <template>
-  <UContainer class="bg-muted border-x border-accented pb-12">
-    <div class="flex flex-col items-center gap-6 py-8">
+  <UContainer
+    class="bg-muted border-x border-accented pb-12"
+    :class="!data && status === 'idle' ? 'flex flex-col min-h-[calc(100dvh-var(--ui-header-height,64px))]' : ''"
+  >
+    <div
+      class="flex flex-col items-center gap-6 py-8"
+      :class="!data && status === 'idle' ? 'flex-1 justify-center' : ''"
+    >
       <UFileUpload
         v-if="showUpload || status === 'idle'"
         accept=".zip"
