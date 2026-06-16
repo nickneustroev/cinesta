@@ -1,5 +1,9 @@
 # AGENTS
 
+## Discussion-First Policy
+
+- When the user asks an open question (e.g., "как сделать...", "может...", "что если..."), do NOT start implementing. First discuss options, then wait for explicit confirmation ("делай", "давай", "ok") before executing.
+
 ## Commit Policy
 
 - NEVER commit unless the user explicitly says "коммит" or "commit". Ask first.
