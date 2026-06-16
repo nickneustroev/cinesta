@@ -55,7 +55,7 @@ function computeByPoints(): DirectorCard[] {
       if (!entry.photo) entry.photo = d.photo
       const contribution = (movie.userRating * BOOST) ** 4
       entry.points += contribution
-      entry.breakdownParts.push(`${movie.title} (${movie.userRating}⁴ = ${contribution})`)
+      entry.breakdownParts.push(`${movie.title} (${movie.userRating}⁴ = ${Math.round(contribution)})`)
       entry.movies.push({ title: movie.title, year: movie.year, userRating: movie.userRating })
       map.set(d.name, entry)
     }
@@ -65,7 +65,7 @@ function computeByPoints(): DirectorCard[] {
     .map(([director, entry]) => ({
       director,
       photo: entry.photo,
-      description: `Points: ${entry.points}`,
+      description: `Points: ${Math.round(entry.points)}`,
       descriptionTitle: entry.breakdownParts.join(' + '),
       movies: entry.movies.sort((a, b) => b.userRating - a.userRating || b.year - a.year)
     }))
