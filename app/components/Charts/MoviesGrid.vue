@@ -9,9 +9,17 @@ const props = defineProps<{
   showMore?: number
   link?: string
   sortBy?: 'rating' | 'dateRated'
+  showYearFilter?: boolean
 }>()
 
 const visibleCount = ref(props.limit ?? 8)
+
+const years = computed(() => {
+  const set = new Set(props.data.map(m => m.year))
+  return ['All', ...[...set].sort((a, b) => b - a)]
+})
+
+const selectedYear = ref<string>('All')
 
 const sortedList = computed(() => {
   const list = [...props.data]
@@ -28,13 +36,22 @@ const sortedList = computed(() => {
   return list
 })
 
-const cards = computed(() => sortedList.value.slice(0, visibleCount.value))
+const filteredList = computed(() => {
+  if (selectedYear.value === 'All') return sortedList.value
+  return sortedList.value.filter(m => m.year === Number(selectedYear.value))
+})
 
-const hasMore = computed(() => visibleCount.value < sortedList.value.length)
+const cards = computed(() => filteredList.value.slice(0, visibleCount.value))
+
+const hasMore = computed(() => visibleCount.value < filteredList.value.length)
 
 function showMoreCards() {
   visibleCount.value += props.showMore!
 }
+
+watch(selectedYear, () => {
+  visibleCount.value = props.limit ?? 8
+})
 </script>
 
 <template>
@@ -45,6 +62,19 @@ function showMoreCards() {
     >
       {{ title }}
     </h3>
+    <div
+      v-if="showYearFilter"
+      class="mb-4"
+    >
+      <p class="text-sm text-muted mb-1">
+        Year Released
+      </p>
+      <USelectMenu
+        v-model="selectedYear"
+        :items="years"
+        class="w-32"
+      />
+    </div>
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <MovieCard
         v-for="(movie, index) in cards"

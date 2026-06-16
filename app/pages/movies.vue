@@ -51,6 +51,7 @@ watch(activeTab, (tab) => {
           :limit="100"
           :show-more="100"
           title="Top Movies by Rating"
+          show-year-filter
         />
         <ChartsMoviesGrid
           v-if="activeTab === 'last-watched'"
