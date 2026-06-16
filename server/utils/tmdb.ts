@@ -56,9 +56,9 @@ async function tmdbFetch(url: string, token: string): Promise<any> {
   return res.json()
 }
 
-async function searchMovie(title: string, year: number, token: string): Promise<any> {
+async function searchMovie(title: string, year: number, token: string, locale: string): Promise<any> {
   const data = await tmdbFetch(
-    `${TMDB_BASE}/search/movie?query=${encodeURIComponent(title)}&year=${year}&language=en-US`,
+    `${TMDB_BASE}/search/movie?query=${encodeURIComponent(title)}&year=${year}&language=${locale}`,
     token
   )
   if (!data?.results?.length) return null
@@ -80,9 +80,9 @@ async function searchMovie(title: string, year: number, token: string): Promise<
   return data.results.sort(byPop)[0]
 }
 
-async function getMovieDetails(tmdbId: number, token: string) {
+async function getMovieDetails(tmdbId: number, token: string, locale: string) {
   const data = await tmdbFetch(
-    `${TMDB_BASE}/movie/${tmdbId}?append_to_response=credits&language=en-US`,
+    `${TMDB_BASE}/movie/${tmdbId}?append_to_response=credits&language=${locale}`,
     token
   )
   if (!data) return null
@@ -94,9 +94,14 @@ async function getMovieDetails(tmdbId: number, token: string) {
   }
 }
 
+function cacheKey(uri: string, locale: string): string {
+  return `${uri}:${locale}`
+}
+
 export async function processCSVData(
   csvFiles: { diary: string; ratings: string; watched: string },
-  cachePath: string
+  cachePath: string,
+  locale = 'en-US'
 ): Promise<ImportData> {
   const tmdbToken = resolveToken()
   console.log('[process] подготовка данных началась')
@@ -157,7 +162,7 @@ export async function processCSVData(
   let cachedCount = 0
   let fetchCount = 0
   for (const movie of toEnrich) {
-    if (cache[movie.uri] && cache[movie.uri]._matched !== undefined) cachedCount++
+    if (cache[cacheKey(movie.uri, locale)]?.hasOwnProperty('_matched')) cachedCount++
     else fetchCount++
   }
 
@@ -170,7 +175,7 @@ export async function processCSVData(
   } else {
     console.log(`[process] обогащение данных: ${cachedCount} из кэша, ${fetchCount} через TMDB`)
 
-    const toFetch = toEnrich.filter(m => !(cache[m.uri] && cache[m.uri]._matched !== undefined))
+    const toFetch = toEnrich.filter(m => !cache[cacheKey(m.uri, locale)]?.hasOwnProperty('_matched'))
     const batchDelay = Math.ceil((BATCH_SIZE * 2) / RATE_LIMIT * 1000)
 
     for (let i = 0; i < toFetch.length; i += BATCH_SIZE) {
@@ -178,20 +183,21 @@ export async function processCSVData(
       const batch = toFetch.slice(i, i + BATCH_SIZE)
 
       const searches = await Promise.all(
-        batch.map(m => searchMovie(m.title, m.year, tmdbToken))
+        batch.map(m => searchMovie(m.title, m.year, tmdbToken, locale))
       )
 
       const details = await Promise.all(
-        searches.map(s => s ? getMovieDetails(s.id, tmdbToken) : null)
+        searches.map(s => s ? getMovieDetails(s.id, tmdbToken, locale) : null)
       )
 
       for (let j = 0; j < batch.length; j++) {
         const movie = batch[j]!
         const searchResult = searches[j]!
         const detail = details[j]!
+        const key = cacheKey(movie.uri, locale)
 
         if (!searchResult || !detail) {
-          cache[movie.uri] = {
+          cache[key] = {
             uri: movie.uri, title: movie.title, year: movie.year,
             tmdbId: searchResult?.id ?? null, genres: [], poster: null, directors: [], _matched: false,
           }
@@ -204,7 +210,7 @@ export async function processCSVData(
             && searchResult.title.toLowerCase() === movie.title.toLowerCase()
           : false
 
-        cache[movie.uri] = {
+        cache[key] = {
           uri: movie.uri, title: movie.title, year: movie.year,
           tmdbId: searchResult.id,
           genres: detail.genres,
@@ -228,7 +234,7 @@ export async function processCSVData(
 
   const enriched: ImportData['enriched'] = []
   for (const movie of toEnrich) {
-    const cached = cache[movie.uri]
+    const cached = cache[cacheKey(movie.uri, locale)]
     if (cached) {
       enriched.push({ ...cached, dateRated: movie.date, userRating: movie.rating })
     }

@@ -6,7 +6,8 @@ import AdmZip from 'adm-zip'
 const CACHE_PATH = join(process.cwd(), 'data', 'tmdb-cache.json')
 const DEMO_ZIP = join(process.cwd(), 'data', 'demo.zip')
 
-export default defineEventHandler(async (): Promise<ImportData> => {
+export default defineEventHandler(async (event): Promise<ImportData> => {
+  const locale = getCookie(event, 'i18n_lang') || 'en-US'
   const zipData = readFileSync(DEMO_ZIP)
   const zip = new AdmZip(Buffer.from(zipData))
   const entries = zip.getEntries()
@@ -22,6 +23,7 @@ export default defineEventHandler(async (): Promise<ImportData> => {
       ratings: readZipCSV('ratings.csv'),
       watched: readZipCSV('watched.csv'),
     },
-    CACHE_PATH
+    CACHE_PATH,
+    locale
   )
 })

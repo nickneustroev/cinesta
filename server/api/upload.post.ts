@@ -8,6 +8,7 @@ const MAX_SIZE = 2 * 1024 * 1024
 const REQUIRED_FILES = ['diary.csv', 'ratings.csv', 'watched.csv']
 
 export default defineEventHandler(async (event): Promise<ImportData> => {
+  const locale = getCookie(event, 'i18n_lang') || 'en-US'
   const formData = await readMultipartFormData(event)
   if (!formData || formData.length === 0) {
     throw createError({ statusCode: 400, statusMessage: 'No file uploaded' })
@@ -54,6 +55,7 @@ export default defineEventHandler(async (event): Promise<ImportData> => {
       ratings: csvFiles['ratings.csv']!,
       watched: csvFiles['watched.csv']!,
     },
-    CACHE_PATH
+    CACHE_PATH,
+    locale
   )
 })
