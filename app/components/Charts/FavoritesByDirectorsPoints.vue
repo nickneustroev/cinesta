@@ -19,7 +19,7 @@ const chartData = computed(() => {
   for (const movie of props.data) {
     for (const d of movie.directors) {
       const current = pointsMap.get(d.name) ?? 0
-      pointsMap.set(d.name, current + (movie.userRating * BOOST) ** 3)
+      pointsMap.set(d.name, current + (movie.userRating * BOOST) ** 4)
     }
   }
 

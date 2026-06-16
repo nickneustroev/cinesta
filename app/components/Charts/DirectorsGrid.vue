@@ -53,9 +53,9 @@ function computeByPoints(): DirectorCard[] {
     for (const d of movie.directors) {
       const entry = map.get(d.name) ?? { photo: d.photo, points: 0, breakdownParts: [] as string[], movies: [] }
       if (!entry.photo) entry.photo = d.photo
-      const contribution = (movie.userRating * BOOST) ** 3
+      const contribution = (movie.userRating * BOOST) ** 4
       entry.points += contribution
-      entry.breakdownParts.push(`${movie.title} (${movie.userRating}³ = ${contribution})`)
+      entry.breakdownParts.push(`${movie.title} (${movie.userRating}⁴ = ${contribution})`)
       entry.movies.push({ title: movie.title, year: movie.year, userRating: movie.userRating })
       map.set(d.name, entry)
     }
