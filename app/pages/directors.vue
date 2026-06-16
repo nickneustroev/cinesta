@@ -1,9 +1,11 @@
 <script setup lang="ts">
 const { data, status, load } = useImportData()
 const { t } = useI18n()
+const initialLoading = ref(true)
 
 onMounted(async () => {
   await load()
+  initialLoading.value = false
 })
 
 const tabItems = computed(() => [
@@ -21,21 +23,27 @@ watch(activeTab, (tab) => {
 </script>
 
 <template>
-  <UContainer class="bg-muted border-x border-muted pb-12">
+  <UContainer
+    class="bg-muted border-x border-muted pb-12"
+    :class="!data ? 'flex flex-col min-h-[calc(100dvh-var(--ui-header-height,64px))]' : ''"
+  >
     <div
-      v-if="status === 'loading'"
-      class="flex flex-col items-center justify-center gap-4 py-20"
+      v-if="initialLoading || status === 'loading'"
+      class="flex flex-col items-center justify-center gap-4 py-20 flex-1"
     >
       <UIcon
         name="i-lucide-loader-circle"
         class="size-8 animate-spin text-muted"
       />
-      <p class="text-sm text-muted">
+      <p
+        v-if="status === 'loading'"
+        class="text-sm text-muted"
+      >
         {{ $t('pages.directors.loading') }}
       </p>
     </div>
 
-    <template v-if="data">
+    <template v-if="data && !initialLoading">
       <UTabs
         v-model="activeTab"
         :items="tabItems"
