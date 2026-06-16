@@ -47,15 +47,17 @@ watch(activeTab, (tab) => {
         <ChartsDirectorsGrid
           v-if="activeTab === 'points'"
           :data="data.enriched"
-          title="Top-100 Directors by Points"
+          title="Top Directors by Points"
           :limit="100"
+          :show-more="100"
           sort-by="points"
         />
         <ChartsDirectorsGrid
           v-if="activeTab === 'highest'"
           :data="data.enriched"
-          title="Top-100 Directors by Highest Movie Rating"
+          title="Top Directors by Highest Movie Rating"
           :limit="100"
+          :show-more="100"
           sort-by="highestMovieRating"
         />
       </div>

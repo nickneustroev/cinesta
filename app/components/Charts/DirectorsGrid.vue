@@ -13,6 +13,7 @@ const props = withDefaults(defineProps<{
   limit?: number
   link?: string
   sortBy?: 'points' | 'highestMovieRating'
+  showMore?: number
 }>(), {
   limit: 20,
   sortBy: 'points'
@@ -26,9 +27,23 @@ interface DirectorCard {
   movies: { title: string, year: number, userRating: number }[]
 }
 
-const cards = computed(() => {
+const visibleCount = ref(props.limit)
+
+const sortedList = computed(() => {
   if (!props.data.length) return []
   return props.sortBy === 'points' ? computeByPoints() : computeByHighest()
+})
+
+const cards = computed(() => sortedList.value.slice(0, visibleCount.value))
+
+const hasMore = computed(() => visibleCount.value < sortedList.value.length)
+
+function showMoreCards() {
+  visibleCount.value += props.showMore!
+}
+
+watch(() => props.sortBy, () => {
+  visibleCount.value = props.limit
 })
 
 function computeByPoints(): DirectorCard[] {
@@ -59,7 +74,6 @@ function computeByPoints(): DirectorCard[] {
       const bPoints = Number(b.description.split(' ')[1])
       return bPoints - aPoints
     })
-    .slice(0, props.limit)
 }
 
 function computeByHighest(): DirectorCard[] {
@@ -92,35 +106,34 @@ function computeByHighest(): DirectorCard[] {
       if (diff !== 0) return diff
       return b.movies.length - a.movies.length
     })
-    .slice(0, props.limit)
 }
 </script>
 
 <template>
   <div class="mx-auto">
     <h3 class="mb-6 text-2xl font-semibold">
-      {{ title ?? `Top-${limit} Directors by ${sortBy === 'points' ? 'Points' : 'Highest Movie Rating'}` }}
+      {{ title ?? `Top${showMore ? '' : `-${limit}`} Directors by ${sortBy === 'points' ? 'Points' : 'Highest Movie Rating'}` }}
     </h3>
     <UPageGrid :ui="{ base: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4' }">
-      <SimpleCard
+      <DirectorCard
         v-for="(card, index) in cards"
         :key="index"
-        :photo="card.photo"
-        :name="card.director"
-        :description="card.description"
-        :description-title="card.descriptionTitle"
-      >
-        <ul class="list-inside list-disc">
-          <li
-            v-for="(movie, mi) in card.movies"
-            :key="mi"
-          >
-            {{ movie.title }} <span class="text-muted">({{ movie.year }}) · {{ movie.userRating }}</span>
-          </li>
-        </ul>
-      </SimpleCard>
+        v-bind="card"
+      />
     </UPageGrid>
 
+    <div
+      v-if="showMore && hasMore"
+      class="flex justify-center mt-4"
+    >
+      <UButton
+        size="lg"
+        color="primary"
+        @click="showMoreCards"
+      >
+        Показать еще {{ showMore }}
+      </UButton>
+    </div>
     <div
       v-if="props.link"
       class="flex justify-center mt-8"
