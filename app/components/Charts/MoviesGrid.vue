@@ -37,6 +37,13 @@ const earliestWatchedYear = computed(() => {
   return years[years.length - 1] ?? null
 })
 
+const genres = computed(() => {
+  const set = new Set(props.data.flatMap(m => m.genres))
+  return ['All', ...[...set].sort()]
+})
+
+const selectedGenre = ref<string>('All')
+
 const sortedList = computed(() => {
   const list = [...props.data]
   if (props.sortBy === 'dateRated') {
@@ -63,6 +70,9 @@ const filteredList = computed(() => {
   if (selectedWatchedYear.value === earliestWatchedYear.value && selectedWatchedYear.value !== 'All') {
     list = list.filter(m => m.dateRated !== props.importDate)
   }
+  if (selectedGenre.value !== 'All') {
+    list = list.filter(m => m.genres.includes(selectedGenre.value))
+  }
   return list
 })
 
@@ -74,7 +84,7 @@ function showMoreCards() {
   visibleCount.value += props.showMore!
 }
 
-watch([selectedYear, selectedWatchedYear], () => {
+watch([selectedYear, selectedWatchedYear, selectedGenre], () => {
   visibleCount.value = props.limit ?? 8
 })
 </script>
@@ -109,6 +119,16 @@ watch([selectedYear, selectedWatchedYear], () => {
           v-model="selectedWatchedYear"
           :items="watchedYears"
           class="w-32"
+        />
+      </div>
+      <div>
+        <p class="text-sm text-muted mb-1">
+          Genre
+        </p>
+        <USelectMenu
+          v-model="selectedGenre"
+          :items="genres"
+          class="w-40"
         />
       </div>
     </div>
