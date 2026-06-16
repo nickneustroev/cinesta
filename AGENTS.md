@@ -1,5 +1,9 @@
 # AGENTS
 
+## Commit Policy
+
+- NEVER commit unless the user explicitly says "коммит" or "commit". Ask first.
+
 ## Styling Preferences
 
 - If this project uses Tailwind CSS, prefer Tailwind utility classes for basic styling changes.
