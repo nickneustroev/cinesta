@@ -1,3 +1,4 @@
+import { createError } from 'h3'
 import { csvToObjects, toNumber } from './csv'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -112,7 +113,8 @@ export async function processCSVData(
   csvFiles: { diary: string; ratings: string; watched: string },
   cachePath: string,
   locale = 'en-US',
-  minRating = 3
+  minRating = 3,
+  tmdbRequired = true
 ): Promise<ImportData> {
   const tmdbToken = resolveToken()
   console.log('[process] подготовка данных началась')
@@ -136,6 +138,10 @@ export async function processCSVData(
     }
   } else {
     console.log('[tmdb] подключение не обнаружено')
+  }
+
+  if (tmdbRequired && !tmdbAvailable) {
+    throw createError({ statusCode: 503, statusMessage: 'TMDB unavailable', message: 'Не удается загрузить данные из базы TMDB' })
   }
 
   const rawDiary = csvToObjects(csvFiles.diary)

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const { data, status, load, process, processFromFile } = useImportData()
+const { data, status, error, load, process, processFromFile } = useImportData()
 const toast = useToast()
 const { t } = useI18n()
 
@@ -62,8 +62,14 @@ function resetUpload() {
 
 async function runDemo() {
   showUpload.value = false
-  await process(minRating.value)
-  showSuccess()
+  uploadedFile.value = null
+  await process(minRating.value, false)
+  if (status.value === 'done') {
+    showSuccess()
+  } else {
+    showUpload.value = true
+    toast.add({ title: error.value || t('home.import_error'), color: 'error', icon: 'i-lucide-x-circle' })
+  }
 }
 
 async function onFileSelect(file: File | null | undefined) {
@@ -84,8 +90,14 @@ async function onFileSelect(file: File | null | undefined) {
   estimate.value = est
   if (est) startCountdown(est.seconds)
   await processFromFile(file, minRating.value)
-  showSuccess()
-  showUpload.value = false
+  if (status.value === 'done') {
+    showUpload.value = false
+    showSuccess()
+  } else {
+    uploadedFile.value = null
+    showUpload.value = true
+    toast.add({ title: error.value || t('home.import_error'), color: 'error', icon: 'i-lucide-x-circle' })
+  }
 }
 </script>
 

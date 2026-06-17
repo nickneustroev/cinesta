@@ -21,14 +21,14 @@ export function useImportData() {
     return false
   }
 
-  async function process(minRating = 3) {
+  async function process(minRating = 3, tmdbRequired = true) {
     status.value = 'loading'
     error.value = null
 
     try {
       const result = await $fetch<ImportData>('/api/process', {
         method: 'POST',
-        body: { minRating },
+        body: { minRating, tmdbRequired },
       })
       data.value = result
       status.value = 'done'
@@ -37,9 +37,9 @@ export function useImportData() {
         await set(STORAGE_KEY, result)
       } catch {
       }
-    } catch (e) {
-      status.value = 'error'
-      error.value = e instanceof Error ? e.message : 'Import failed'
+    } catch (e: any) {
+      status.value = 'idle'
+      error.value = e?.data?.message || e?.message || 'Import failed'
     }
   }
 
@@ -62,9 +62,9 @@ export function useImportData() {
         await set(STORAGE_KEY, result)
       } catch {
       }
-    } catch (e) {
-      status.value = 'error'
-      error.value = e instanceof Error ? e.message : 'Import failed'
+    } catch (e: any) {
+      status.value = 'idle'
+      error.value = e?.data?.message || e?.message || 'Import failed'
     }
   }
 

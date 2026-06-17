@@ -8,8 +8,9 @@ const DEMO_ZIP = join(process.cwd(), 'data', 'demo.zip')
 
 export default defineEventHandler(async (event): Promise<ImportData> => {
   const locale = getCookie(event, 'i18n_lang') || 'en-US'
-  const body = await readBody<{ minRating?: number }>(event)
+  const body = await readBody<{ minRating?: number, tmdbRequired?: boolean }>(event)
   const minRating = body?.minRating || 3
+  const tmdbRequired = body?.tmdbRequired ?? true
   const zipData = readFileSync(DEMO_ZIP)
   const zip = new AdmZip(Buffer.from(zipData))
   const entries = zip.getEntries()
@@ -27,6 +28,7 @@ export default defineEventHandler(async (event): Promise<ImportData> => {
     },
     CACHE_PATH,
     locale,
-    minRating
+    minRating,
+    tmdbRequired
   )
 })

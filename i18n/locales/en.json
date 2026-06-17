@@ -5,8 +5,8 @@
     "directors": "Directors"
   },
   "home": {
-    "run": "Run on demo data",
-    "run_again": "Restart on demo data",
+    "run": "Run on demo profile",
+    "run_again": "Restart on demo profile",
     "loading": "Preparing data...",
     "loading_estimate": "Processing ~{count} movies... ~{seconds} sec remaining",
     "loading_finishing": "Processing will finish soon, please wait",
@@ -19,7 +19,8 @@
     "upload_again": "Upload data again",
     "min_rating_description": "Set a rating from 0.5 to 5, starting from which you like movies.\nOnly movies with this rating or higher will be processed.\nWe recommend keeping the default value (3).",
     "upload_or_demo": "Or, if you don't have your own data, you can:",
-    "import_success": "Data import completed successfully."
+    "import_success": "Data import completed successfully.",
+    "import_error": "Data import failed."
   },
   "pages": {
     "movies": {
