@@ -1,0 +1,9 @@
+#:schema https://developers.openai.com/codex/config-schema.json
+
+[mcp_servers.nuxt]
+url = "https://nuxt.com/mcp"
+enabled = true
+
+[mcp_servers.nuxt_ui]
+url = "https://ui.nuxt.com/mcp"
+enabled = true
