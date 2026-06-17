@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import { buildHomeChartAnalytics } from '~/utils/home-analytics'
+
 const { data, status, error, load, process, processFromFile } = useImportData()
-const analytics = useHomeAnalytics(data, { includeCharts: true })
-const chartAnalytics = computed(() => analytics.value?.charts)
+const analytics = useHomeAnalytics(data, { includeCharts: false })
 const toast = useToast()
 const { t } = useI18n()
 
@@ -12,12 +13,14 @@ const estimate = ref<{ count: number, seconds: number } | null>(null)
 const remainingSeconds = ref(0)
 const initialLoading = ref(true)
 const minRating = ref(3)
+const chartBatch = ref(0)
+const analyticsSection = useTemplateRef<HTMLElement>('analyticsSection')
+const analyticsBatchTwoTrigger = useTemplateRef<HTMLElement>('analyticsBatchTwoTrigger')
+const analyticsBatchThreeTrigger = useTemplateRef<HTMLElement>('analyticsBatchThreeTrigger')
 let countdownTimer: ReturnType<typeof setInterval> | null = null
-let chartsIdleHandle: number | null = null
-let chartsFallbackTimer: ReturnType<typeof setTimeout> | null = null
-let chartsBatchTimer: ReturnType<typeof setTimeout> | null = null
-const showPrimaryCharts = ref(false)
-const showSecondaryCharts = ref(false)
+let analyticsObserver: IntersectionObserver | null = null
+let analyticsBatchTwoObserver: IntersectionObserver | null = null
+let analyticsBatchThreeObserver: IntersectionObserver | null = null
 
 onMounted(async () => {
   await load()
@@ -26,7 +29,9 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (countdownTimer) clearInterval(countdownTimer)
-  resetChartSchedule()
+  analyticsObserver?.disconnect()
+  analyticsBatchTwoObserver?.disconnect()
+  analyticsBatchThreeObserver?.disconnect()
 })
 
 function showSuccess() {
@@ -66,13 +71,11 @@ function resetUpload() {
     clearInterval(countdownTimer)
     countdownTimer = null
   }
-  resetChartSchedule()
 }
 
 async function runDemo() {
   showUpload.value = false
   uploadedFile.value = null
-  resetChartSchedule()
   await process(minRating.value, false)
   if (status.value === 'done') {
     showSuccess()
@@ -99,7 +102,6 @@ async function onFileSelect(file: File | null | undefined) {
   const est = await estimateProcessingTime(file, minRating.value)
   estimate.value = est
   if (est) startCountdown(est.seconds)
-  resetChartSchedule()
   await processFromFile(file, minRating.value)
   if (status.value === 'done') {
     showUpload.value = false
@@ -111,56 +113,73 @@ async function onFileSelect(file: File | null | undefined) {
   }
 }
 
-function resetChartSchedule() {
-  showPrimaryCharts.value = false
-  showSecondaryCharts.value = false
-
-  if (chartsIdleHandle !== null && typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
-    window.cancelIdleCallback(chartsIdleHandle)
-  }
-  if (chartsFallbackTimer) clearTimeout(chartsFallbackTimer)
-  if (chartsBatchTimer) clearTimeout(chartsBatchTimer)
-
-  chartsIdleHandle = null
-  chartsFallbackTimer = null
-  chartsBatchTimer = null
-}
-
-function scheduleCharts() {
-  if (typeof window === 'undefined') return
-
-  resetChartSchedule()
-
-  const revealCharts = () => {
-    showPrimaryCharts.value = true
-    chartsBatchTimer = globalThis.setTimeout(() => {
-      showSecondaryCharts.value = true
-      chartsBatchTimer = null
-    }, 120)
-  }
-
-  if ('requestIdleCallback' in window) {
-    chartsIdleHandle = window.requestIdleCallback(() => {
-      chartsIdleHandle = null
-      revealCharts()
-    }, { timeout: 200 })
-    return
-  }
-
-  chartsFallbackTimer = globalThis.setTimeout(() => {
-    chartsFallbackTimer = null
-    revealCharts()
-  }, 0)
-}
-
-watch(data, (value) => {
-  if (!value) {
-    resetChartSchedule()
-    return
-  }
-
-  scheduleCharts()
+const chartAnalytics = computed(() => {
+  if (chartBatch.value === 0 || !data.value) return null
+  return buildHomeChartAnalytics(data.value)
 })
+
+watch([data, analyticsSection, chartBatch], ([currentData, sectionEl, currentBatch], _prev, onCleanup) => {
+  if (!currentData || !sectionEl || currentBatch > 0) return
+
+  analyticsObserver?.disconnect()
+  analyticsObserver = new IntersectionObserver((entries) => {
+    if (!entries.some(entry => entry.isIntersecting)) return
+
+    chartBatch.value = 1
+    analyticsObserver?.disconnect()
+    analyticsObserver = null
+  }, {
+    rootMargin: '300px 0px'
+  })
+
+  analyticsObserver.observe(sectionEl)
+  onCleanup(() => {
+    analyticsObserver?.disconnect()
+    analyticsObserver = null
+  })
+}, { flush: 'post' })
+
+watch([chartBatch, analyticsBatchTwoTrigger], ([currentBatch, triggerEl], _prev, onCleanup) => {
+  if (currentBatch !== 1 || !triggerEl) return
+
+  analyticsBatchTwoObserver?.disconnect()
+  analyticsBatchTwoObserver = new IntersectionObserver((entries) => {
+    if (!entries.some(entry => entry.isIntersecting)) return
+
+    chartBatch.value = 2
+    analyticsBatchTwoObserver?.disconnect()
+    analyticsBatchTwoObserver = null
+  }, {
+    rootMargin: '250px 0px'
+  })
+
+  analyticsBatchTwoObserver.observe(triggerEl)
+  onCleanup(() => {
+    analyticsBatchTwoObserver?.disconnect()
+    analyticsBatchTwoObserver = null
+  })
+}, { flush: 'post' })
+
+watch([chartBatch, analyticsBatchThreeTrigger], ([currentBatch, triggerEl], _prev, onCleanup) => {
+  if (currentBatch !== 2 || !triggerEl) return
+
+  analyticsBatchThreeObserver?.disconnect()
+  analyticsBatchThreeObserver = new IntersectionObserver((entries) => {
+    if (!entries.some(entry => entry.isIntersecting)) return
+
+    chartBatch.value = 3
+    analyticsBatchThreeObserver?.disconnect()
+    analyticsBatchThreeObserver = null
+  }, {
+    rootMargin: '250px 0px'
+  })
+
+  analyticsBatchThreeObserver.observe(triggerEl)
+  onCleanup(() => {
+    analyticsBatchThreeObserver?.disconnect()
+    analyticsBatchThreeObserver = null
+  })
+}, { flush: 'post' })
 </script>
 
 <template>
@@ -293,23 +312,60 @@ watch(data, (value) => {
           :limit="8"
           link="/directors?tab=highest"
         />
-        <template v-if="showPrimaryCharts && chartAnalytics">
-          <ChartsFavoritesByGenres :items="chartAnalytics.favoritesByGenres" />
-          <ChartsGenreShareByYears
-            :items="chartAnalytics.genreShareByYears"
-            :categories-data="chartAnalytics.genreCategories"
-          />
-          <ChartsGenreShareByWatchedYear
-            :items="chartAnalytics.genreShareByWatchedYear"
-            :categories-data="chartAnalytics.genreCategories"
-          />
-        </template>
-        <template v-if="showSecondaryCharts && chartAnalytics">
-          <ChartsRatingStackedByYears :items="chartAnalytics.ratingStackedByYears" />
-          <ChartsRatingShareByYears :items="chartAnalytics.ratingShareByYears" />
-          <ChartsWatchedAllByRating :items="chartAnalytics.watchedAllByRating" />
-          <ChartsAllMoviesCountByMonthWatched :items="chartAnalytics.allMoviesCountByMonthWatched" />
-        </template>
+
+        <section
+          ref="analyticsSection"
+          class="flex flex-col gap-y-8"
+        >
+          <h3 class="text-2xl font-semibold">
+            Analytics
+          </h3>
+
+          <div
+            v-if="chartBatch === 0"
+            class="rounded-2xl border border-accented bg-default/70 px-6 py-10 text-center text-sm text-muted"
+          >
+            {{ $t('home.loading') }}
+          </div>
+
+          <template v-else-if="chartAnalytics">
+            <LazyChartsFavoritesByGenres :items="chartAnalytics.favoritesByGenres" />
+            <LazyChartsGenreShareByYears
+              :items="chartAnalytics.genreShareByYears"
+              :categories-data="chartAnalytics.genreCategories"
+            />
+
+            <div
+              v-if="chartBatch === 1"
+              ref="analyticsBatchTwoTrigger"
+              class="rounded-2xl border border-dashed border-accented bg-default/50 px-6 py-8 text-center text-sm text-muted"
+            >
+              Scroll to load more analytics
+            </div>
+
+            <template v-if="chartBatch >= 2">
+              <LazyChartsGenreShareByWatchedYear
+                :items="chartAnalytics.genreShareByWatchedYear"
+                :categories-data="chartAnalytics.genreCategories"
+              />
+              <LazyChartsRatingStackedByYears :items="chartAnalytics.ratingStackedByYears" />
+
+              <div
+                v-if="chartBatch === 2"
+                ref="analyticsBatchThreeTrigger"
+                class="rounded-2xl border border-dashed border-accented bg-default/50 px-6 py-8 text-center text-sm text-muted"
+              >
+                Scroll to load the remaining analytics
+              </div>
+            </template>
+
+            <template v-if="chartBatch >= 3">
+              <LazyChartsRatingShareByYears :items="chartAnalytics.ratingShareByYears" />
+              <LazyChartsWatchedAllByRating :items="chartAnalytics.watchedAllByRating" />
+              <LazyChartsAllMoviesCountByMonthWatched :items="chartAnalytics.allMoviesCountByMonthWatched" />
+            </template>
+          </template>
+        </section>
       </div>
     </template>
   </UContainer>
