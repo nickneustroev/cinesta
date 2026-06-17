@@ -8,24 +8,15 @@ export default defineNuxtConfig({
     '@nuxtjs/i18n'
   ],
 
-  i18n: {
-    defaultLocale: 'ru',
-    strategy: 'no_prefix',
-    locales: [
-      { code: 'en', name: 'English', file: 'en.json' },
-      { code: 'ru', name: 'Русский', file: 'ru.json' }
-    ],
-    detectBrowserLanguage: {
-      useCookie: true,
-      cookieKey: 'i18n_lang'
-    }
-  },
-
   devtools: {
     enabled: true
   },
 
   css: ['~/assets/css/main.css'],
+
+  runtimeConfig: {
+    tmdbToken: ''
+  },
 
   routeRules: {
     '/': { prerender: true }
@@ -45,6 +36,19 @@ export default defineNuxtConfig({
         commaDangle: 'never',
         braceStyle: '1tbs'
       }
+    }
+  },
+
+  i18n: {
+    defaultLocale: 'ru',
+    strategy: 'no_prefix',
+    locales: [
+      { code: 'en', name: 'English', file: 'en.json' },
+      { code: 'ru', name: 'Русский', file: 'ru.json' }
+    ],
+    detectBrowserLanguage: {
+      useCookie: true,
+      cookieKey: 'i18n_lang'
     }
   }
 })

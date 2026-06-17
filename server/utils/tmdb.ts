@@ -1,7 +1,6 @@
 import { createError } from 'h3'
 import { csvToObjects, toNumber } from './csv'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { readFileSync, writeFileSync } from 'node:fs'
 import type { ImportData } from '~/types/import'
 
 const TMDB_BASE = 'https://api.themoviedb.org/3'
@@ -12,19 +11,6 @@ let lastRequest = 0
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
-}
-
-function resolveToken(): string {
-  try {
-    const env = readFileSync(join(process.cwd(), '.env'), 'utf-8')
-    const line = env.split('\n').find(l => l.trim().startsWith('TMDB_TOKEN='))
-    if (line) {
-      let val = line.slice(line.indexOf('=') + 1).trim()
-      if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1)
-      return val
-    }
-  } catch { }
-  return ''
 }
 
 export function loadOrCreateCache(cachePath: string): Record<string, any> {
@@ -46,7 +32,7 @@ async function tmdbFetch(url: string, token: string): Promise<any> {
   let res: Response
   try {
     res = await fetch(url, {
-      headers: { Authorization: token.startsWith('Bearer ') ? token : `Bearer ${token}` },
+      headers: { Authorization: token.startsWith('Bearer ') ? token : `Bearer ${token}` }
     })
   } catch (e) {
     console.log('[tmdb] ошибка сети:', e)
@@ -101,7 +87,7 @@ async function getMovieDetails(tmdbId: number, token: string, locale: string) {
     title: data.title || null,
     genres: data.genres?.map((g: any) => g.name) || [],
     poster: data.poster_path || null,
-    directors: directors.map((d: any) => ({ name: d.name, photo: d.profile_path || null })),
+    directors: directors.map((d: any) => ({ name: d.name, photo: d.profile_path || null }))
   }
 }
 
@@ -110,13 +96,13 @@ function cacheKey(uri: string, locale: string): string {
 }
 
 export async function processCSVData(
-  csvFiles: { diary: string; ratings: string; watched: string },
+  csvFiles: { diary: string, ratings: string, watched: string },
   cachePath: string,
   locale = 'en-US',
   minRating = 3,
   tmdbRequired = true
 ): Promise<ImportData> {
-  const tmdbToken = resolveToken()
+  const { tmdbToken } = useRuntimeConfig()
   console.log('[process] подготовка данных началась')
 
   // Проверка подключения к TMDB
@@ -233,7 +219,7 @@ export async function processCSVData(
         if (!searchResult || !detail) {
           cache[key] = {
             uri: movie.uri, title: movie.title, year: movie.year,
-            tmdbId: searchResult?.id ?? null, genres: [], poster: null, directors: [], _matched: false,
+            tmdbId: searchResult?.id ?? null, genres: [], poster: null, directors: [], _matched: false
           }
           notFound++
           continue
@@ -241,7 +227,7 @@ export async function processCSVData(
 
         const isExact = searchResult.release_date
           ? parseInt(searchResult.release_date.split('-')[0], 10) === movie.year
-            && (detail.title ?? searchResult.title).toLowerCase() === movie.title.toLowerCase()
+          && (detail.title ?? searchResult.title).toLowerCase() === movie.title.toLowerCase()
           : false
 
         cache[key] = {
@@ -250,7 +236,7 @@ export async function processCSVData(
           genres: detail.genres,
           poster: detail.poster,
           directors: detail.directors,
-          _matched: true,
+          _matched: true
         }
 
         if (isExact) exactMatch++

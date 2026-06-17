@@ -3,7 +3,7 @@ import JSZip from 'jszip'
 const MOVIES_PER_SECOND = 13
 const MIN_TIME_SECONDS = 10
 
-export async function estimateProcessingTime(file: File, minRating = 3): Promise<{ count: number; seconds: number } | null> {
+export async function estimateProcessingTime(file: File, minRating = 3): Promise<{ count: number, seconds: number } | null> {
   try {
     const zip = await JSZip.loadAsync(file)
     const ratingsFile = zip.file('ratings.csv')

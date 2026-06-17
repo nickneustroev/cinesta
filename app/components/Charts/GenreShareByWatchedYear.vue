@@ -14,7 +14,7 @@ const GENRE_COLORS = [
   '#2563eb', '#dc2626', '#16a34a', '#ca8a04', '#9333ea',
   '#db2777', '#0d9488', '#ea580c', '#4f46e5', '#65a30d',
   '#0891b2', '#c026d3', '#0284c7', '#059669', '#d97706',
-  '#7c3aed', '#4d7c0f', '#0f766e', '#e11d48', '#0369a1',
+  '#7c3aed', '#4d7c0f', '#0f766e', '#e11d48', '#0369a1'
 ]
 
 const allGenres = computed(() => {
@@ -42,7 +42,7 @@ const chartData = computed(() => {
 
   const withYear = props.data
     .map(m => ({ movie: m, year: getYear(m), dateRated: m.dateRated }))
-    .filter((x): x is { movie: EnrichedMovie; year: number; dateRated: string } => x.year !== null && x.year >= 1990 && x.dateRated !== null)
+    .filter((x): x is { movie: EnrichedMovie, year: number, dateRated: string } => x.year !== null && x.year >= 1990 && x.dateRated !== null)
 
   if (!withYear.length) return []
 
@@ -88,7 +88,7 @@ const chartData = computed(() => {
 })
 
 const chartCategories = computed(() => {
-  const cats: Record<string, { name: string; color: string }> = {}
+  const cats: Record<string, { name: string, color: string }> = {}
   allGenres.value.forEach((g, i) => {
     cats[g] = { name: g, color: GENRE_COLORS[i % GENRE_COLORS.length] }
   })

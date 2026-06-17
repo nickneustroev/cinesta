@@ -24,7 +24,7 @@ export default defineEventHandler(async (event): Promise<ImportData> => {
     {
       diary: readZipCSV('diary.csv'),
       ratings: readZipCSV('ratings.csv'),
-      watched: readZipCSV('watched.csv'),
+      watched: readZipCSV('watched.csv')
     },
     CACHE_PATH,
     locale,

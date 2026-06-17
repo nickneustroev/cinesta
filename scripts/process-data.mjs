@@ -54,7 +54,7 @@ function parseCSVFile(filename) {
   const rows = parseCSV(text)
   if (rows.length < 1) return []
   const headers = rows[0]
-  return rows.slice(1).map(row => {
+  return rows.slice(1).map((row) => {
     const obj = {}
     headers.forEach((h, i) => {
       obj[h] = row[i] !== undefined ? row[i] : null
@@ -108,19 +108,21 @@ const typedWatchlist = (watchlist || []).map(e => ({
   uri: e['Letterboxd URI'] || null
 }))
 
-const typedProfile = (profile && profile.length > 0) ? {
-  dateJoined: profile[0]['Date Joined'] || null,
-  username: profile[0].Username || null,
-  givenName: profile[0]['Given Name'] || null,
-  familyName: profile[0]['Family Name'] || null,
-  location: profile[0].Location || null,
-  website: profile[0].Website || null,
-  bio: profile[0].Bio || null,
-  pronoun: profile[0].Pronoun || null,
-  favoriteFilms: profile[0]['Favorite Films']
-    ? profile[0]['Favorite Films'].split(',').map(s => s.trim()).filter(Boolean)
-    : []
-} : null
+const typedProfile = (profile && profile.length > 0)
+  ? {
+      dateJoined: profile[0]['Date Joined'] || null,
+      username: profile[0].Username || null,
+      givenName: profile[0]['Given Name'] || null,
+      familyName: profile[0]['Family Name'] || null,
+      location: profile[0].Location || null,
+      website: profile[0].Website || null,
+      bio: profile[0].Bio || null,
+      pronoun: profile[0].Pronoun || null,
+      favoriteFilms: profile[0]['Favorite Films']
+        ? profile[0]['Favorite Films'].split(',').map(s => s.trim()).filter(Boolean)
+        : []
+    }
+  : null
 
 const movieMap = new Map()
 

@@ -7,8 +7,7 @@ export function parseCSV(text: string): string[][] {
     const ch = text[i]
     const next = text[i + 1]
     if (ch === '"') {
-      if (inQuotes && next === '"') { current += '"'; i++ }
-      else { inQuotes = !inQuotes }
+      if (inQuotes && next === '"') { current += '"'; i++ } else { inQuotes = !inQuotes }
     } else if (ch === ',' && !inQuotes) {
       row.push(current.trim()); current = ''
     } else if ((ch === '\n' || (ch === '\r' && next === '\n')) && !inQuotes) {
@@ -26,7 +25,7 @@ export function csvToObjects(text: string): Record<string, string>[] {
   const rows = parseCSV(text)
   if (rows.length < 1) return []
   const headers = rows[0]!
-  return rows.slice(1).map(row => {
+  return rows.slice(1).map((row) => {
     const obj: Record<string, string> = {}
     headers.forEach((h, i) => { obj[h] = row[i] !== undefined ? row[i] : '' })
     return obj

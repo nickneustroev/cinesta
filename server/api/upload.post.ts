@@ -42,7 +42,7 @@ export default defineEventHandler(async (event): Promise<ImportData> => {
   const csvFiles: Record<string, string> = {}
 
   for (const required of REQUIRED_FILES) {
-    const entry = zipEntries.find(e => {
+    const entry = zipEntries.find((e) => {
       const name = e.entryName.replace(/\\/g, '/')
       return name === required || name.endsWith('/' + required)
     })
@@ -56,7 +56,7 @@ export default defineEventHandler(async (event): Promise<ImportData> => {
     {
       diary: csvFiles['diary.csv']!,
       ratings: csvFiles['ratings.csv']!,
-      watched: csvFiles['watched.csv']!,
+      watched: csvFiles['watched.csv']!
     },
     CACHE_PATH,
     locale,

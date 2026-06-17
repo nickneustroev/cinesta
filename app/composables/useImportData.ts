@@ -28,7 +28,7 @@ export function useImportData() {
     try {
       const result = await $fetch<ImportData>('/api/process', {
         method: 'POST',
-        body: { minRating, tmdbRequired },
+        body: { minRating, tmdbRequired }
       })
       data.value = result
       status.value = 'done'
@@ -53,7 +53,7 @@ export function useImportData() {
       formData.append('minRating', String(minRating))
       const result = await $fetch<ImportData>('/api/upload', {
         method: 'POST',
-        body: formData,
+        body: formData
       })
       data.value = result
       status.value = 'done'

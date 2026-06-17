@@ -25,7 +25,7 @@ function showSuccess() {
   toast.add({
     title: t('home.import_success'),
     color: 'success',
-    icon: 'i-lucide-check-circle',
+    icon: 'i-lucide-check-circle'
   })
 }
 
