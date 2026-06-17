@@ -20,3 +20,4 @@
 ## Lint Policy
 
 - After completing any task, always run `pnpm lint` and fix any errors before committing.
+- Do not explicitly report that `pnpm lint` was run unless the user asks about it or lint results are relevant to the outcome.
