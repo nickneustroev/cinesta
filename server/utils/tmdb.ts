@@ -42,16 +42,26 @@ async function tmdbFetch(url: string, token: string): Promise<any> {
   }
   lastRequest = Date.now()
 
-  const res = await fetch(url, {
-    headers: { Authorization: token.startsWith('Bearer ') ? token : `Bearer ${token}` },
-  })
+  let res: Response
+  try {
+    res = await fetch(url, {
+      headers: { Authorization: token.startsWith('Bearer ') ? token : `Bearer ${token}` },
+    })
+  } catch (e) {
+    console.log('[tmdb] ошибка сети:', e)
+    return null
+  }
 
   if (res.status === 429) {
+    console.log('[tmdb] rate limit, повтор через 2с')
     await sleep(2000)
     return tmdbFetch(url, token)
   }
 
-  if (!res.ok) return null
+  if (!res.ok) {
+    console.log('[tmdb] ошибка запроса', res.status, res.statusText)
+    return null
+  }
   return res.json()
 }
 
@@ -107,6 +117,27 @@ export async function processCSVData(
   const tmdbToken = resolveToken()
   console.log('[process] подготовка данных началась')
 
+  // Проверка подключения к TMDB
+  let tmdbAvailable = false
+  if (tmdbToken) {
+    try {
+      const testRes = await fetch(`${TMDB_BASE}/configuration`, {
+        headers: { Authorization: tmdbToken.startsWith('Bearer ') ? tmdbToken : `Bearer ${tmdbToken}` },
+        signal: AbortSignal.timeout(5000)
+      })
+      if (testRes.ok) {
+        tmdbAvailable = true
+        console.log('[tmdb] подключение обнаружено и успешно')
+      } else {
+        console.log('[tmdb] подключение обнаружено, но tmdb api не отвечает (статус: ' + testRes.status + ')')
+      }
+    } catch (e) {
+      console.log('[tmdb] подключение обнаружено, но tmdb api не отвечает:', e)
+    }
+  } else {
+    console.log('[tmdb] подключение не обнаружено')
+  }
+
   const rawDiary = csvToObjects(csvFiles.diary)
   const rawRatings = csvToObjects(csvFiles.ratings)
   const rawWatched = csvToObjects(csvFiles.watched)
@@ -150,12 +181,6 @@ export async function processCSVData(
 
   console.log(`[process] требуется обогащение данных: для ratings с оценкой ≥ ${minRating}`)
 
-  if (tmdbToken) {
-    console.log('[process] доступы к TMDB обнаружены')
-  } else {
-    console.log('[process] TMDB токен не найден, обогащение пропущено')
-  }
-
   const cache = loadOrCreateCache(cachePath)
 
   const toEnrich = ratings.filter(m => m.rating !== null && m.rating >= minRating)
@@ -173,6 +198,8 @@ export async function processCSVData(
 
   if (fetchCount === 0) {
     console.log(`[process] обогащение данных: ${cachedCount} из кэша`)
+  } else if (!tmdbAvailable) {
+    console.log(`[process] обогащение данных: ${cachedCount} из кэша, ${fetchCount} пропущено (tmdb недоступен)`)
   } else {
     console.log(`[process] обогащение данных: ${cachedCount} из кэша, ${fetchCount} через TMDB`)
 
