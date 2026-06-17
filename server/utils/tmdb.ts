@@ -1,6 +1,7 @@
 import { createError } from 'h3'
 import { csvToObjects, toNumber } from './csv'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { dirname } from 'node:path'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import type { ImportData } from '~/types/import'
 
 const TMDB_BASE = 'https://api.themoviedb.org/3'
@@ -51,21 +52,41 @@ interface MovieDetails {
 
 type CachedMovie = Omit<ImportData['enriched'][number], 'dateRated' | 'userRating'>
 
+interface CachePaths {
+  runtimePath: string
+  snapshotPath: string
+}
+
+const IS_DEV = import.meta.dev
+
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-export function loadOrCreateCache(cachePath: string): Record<string, CachedMovie> {
+function readCacheFile(path: string): Record<string, CachedMovie> | null {
   try {
-    return JSON.parse(readFileSync(cachePath, 'utf-8')) as Record<string, CachedMovie>
+    return JSON.parse(readFileSync(path, 'utf-8')) as Record<string, CachedMovie>
   } catch {
-    return {}
+    return null
   }
 }
 
-export function saveCache(cachePath: string, cache: Record<string, CachedMovie>) {
+export function loadOrCreateCache(paths: CachePaths): Record<string, CachedMovie> {
+  if (IS_DEV) {
+    return readCacheFile(paths.runtimePath) ?? readCacheFile(paths.snapshotPath) ?? {}
+  }
+
+  return readCacheFile(paths.snapshotPath) ?? {}
+}
+
+export function saveCache(paths: CachePaths, cache: Record<string, CachedMovie>) {
+  if (!IS_DEV) {
+    return
+  }
+
   try {
-    writeFileSync(cachePath, JSON.stringify(cache, null, 2), 'utf-8')
+    mkdirSync(dirname(paths.runtimePath), { recursive: true })
+    writeFileSync(paths.runtimePath, JSON.stringify(cache, null, 2), 'utf-8')
   } catch (cacheError) {
     void cacheError
   }
@@ -147,7 +168,7 @@ function cacheKey(uri: string, locale: string): string {
 
 export async function processCSVData(
   csvFiles: { diary: string, ratings: string, watched: string },
-  cachePath: string,
+  cachePaths: CachePaths,
   locale = 'en-US',
   minRating = 3,
   tmdbRequired = true
@@ -223,7 +244,7 @@ export async function processCSVData(
 
   console.log(`[process] требуется обогащение данных: для ratings с оценкой ≥ ${minRating}`)
 
-  const cache = loadOrCreateCache(cachePath)
+  const cache = loadOrCreateCache(cachePaths)
 
   const toEnrich = ratings.filter(m => m.rating !== null && m.rating >= minRating)
 
@@ -310,7 +331,7 @@ export async function processCSVData(
     }
   }
 
-  saveCache(cachePath, cache)
+  saveCache(cachePaths, cache)
 
   const allDates = [...ratings.map(r => r.date), ...watched.map(w => w.date), ...diary.map(d => d.date)].filter(Boolean).sort() as string[]
   const sorted = allDates.length > 0 ? allDates : []

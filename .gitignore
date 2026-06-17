@@ -19,7 +19,7 @@ logs
 .idea
 
 # TMDB cache
-data/tmdb-cache.json
+data/tmdb-cache.runtime.json
 
 # Local env files
 .env

@@ -2,8 +2,11 @@ import { join } from 'node:path'
 import type { ImportData } from '~/types/import'
 import AdmZip from 'adm-zip'
 
-const CACHE_PATH = join(process.cwd(), 'data', 'tmdb-cache.json')
 const MAX_SIZE = 2 * 1024 * 1024
+const CACHE_PATHS = {
+  runtimePath: join(process.cwd(), 'data', 'tmdb-cache.runtime.json'),
+  snapshotPath: join(process.cwd(), 'public', 'tmdb-cache.json')
+}
 
 const REQUIRED_FILES = ['diary.csv', 'ratings.csv', 'watched.csv']
 
@@ -58,7 +61,7 @@ export default defineEventHandler(async (event): Promise<ImportData> => {
       ratings: csvFiles['ratings.csv']!,
       watched: csvFiles['watched.csv']!
     },
-    CACHE_PATH,
+    CACHE_PATHS,
     locale,
     minRating
   )
