@@ -133,18 +133,18 @@ async function searchMovie(title: string, year: number, token: string, locale: s
   const byPop = (a: TmdbMovieSearchResult, b: TmdbMovieSearchResult) => (b.popularity ?? 0) - (a.popularity ?? 0)
 
   const candidates = data.results.filter((r) => {
-    const rYear = r.release_date ? parseInt(r.release_date.split('-')[0], 10) : null
+    const rYear = r.release_date ? parseInt(r.release_date.split('-')[0] ?? '', 10) : null
     return rYear && Math.abs(rYear - year) <= 1
   })
 
   const exact = candidates
     .filter(r => r.title.toLowerCase() === title.toLowerCase())
     .sort(byPop)
-  if (exact.length) return exact[0]
+  if (exact.length) return exact[0] ?? null
 
-  if (candidates.length) return candidates.sort(byPop)[0]
+  if (candidates.length) return candidates.sort(byPop)[0] ?? null
 
-  return data.results.sort(byPop)[0]
+  return data.results.sort(byPop)[0] ?? null
 }
 
 async function getMovieDetails(tmdbId: number, token: string, locale: string): Promise<MovieDetails | null> {
@@ -297,7 +297,7 @@ export async function processCSVData(
         }
 
         const isExact = searchResult.release_date
-          ? parseInt(searchResult.release_date.split('-')[0], 10) === movie.year
+          ? parseInt(searchResult.release_date.split('-')[0] ?? '', 10) === movie.year
           && (detail.title ?? searchResult.title).toLowerCase() === movie.title.toLowerCase()
           : false
 

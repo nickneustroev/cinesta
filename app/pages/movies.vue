@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const { data, status, load } = useImportData()
+const analytics = useHomeAnalytics(data, { includeCharts: false })
 const { t } = useI18n()
 const initialLoading = ref(true)
 
@@ -55,20 +56,21 @@ watch(activeTab, (tab) => {
       <div class="flex flex-col gap-y-8 pt-8">
         <MoviesGrid
           v-if="activeTab === 'ratings'"
-          :data="data.enriched"
+          :data="analytics?.moviesByRating || []"
           :import-date="data.stats.importDate"
           :limit="100"
           :show-more="100"
           :title="$t('charts.top_movies_by_rating')"
+          pre-sorted
           show-year-filter
         />
         <MoviesGrid
           v-if="activeTab === 'last-watched'"
-          :data="data.enriched"
+          :data="analytics?.moviesByDateRated || []"
           :import-date="data.stats.importDate"
           :limit="100"
           :show-more="100"
-          sort-by="dateRated"
+          pre-sorted
           :title="$t('charts.last_watched')"
         />
       </div>

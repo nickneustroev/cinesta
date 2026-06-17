@@ -1,15 +1,19 @@
 <script lang="ts" setup>
 import { ratingKeys, ratingLookup, groupRatingsByYear, buildRatingCategories } from '~/utils/ratings'
 import type { RatingEntry } from '~/types/import'
+import type { CountByYearDatum } from '~/utils/home-analytics'
 
 defineOptions({
   tags: ['barcharts', 'stacked']
 })
 
-const props = defineProps<{
-  data: RatingEntry[]
+const props = withDefaults(defineProps<{
+  data?: RatingEntry[]
+  items?: CountByYearDatum[]
   showTitle?: boolean
-}>()
+}>(), {
+  data: () => []
+})
 
 interface YearData {
   [key: string]: string | number
@@ -17,6 +21,7 @@ interface YearData {
 }
 
 const chartData = computed(() => {
+  if (props.items) return props.items
   if (!props.data.length) return []
 
   const { map, sortedYears } = groupRatingsByYear(props.data)

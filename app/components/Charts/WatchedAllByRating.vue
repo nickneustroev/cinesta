@@ -1,16 +1,21 @@
 <script lang="ts" setup>
 import type { RatingEntry } from '~/types/import'
+import type { RatingCountDatum } from '~/utils/home-analytics'
 
 defineOptions({
   tags: ['barcharts', 'vertical']
 })
 
-const props = defineProps<{
-  data: RatingEntry[]
+const props = withDefaults(defineProps<{
+  data?: RatingEntry[]
+  items?: RatingCountDatum[]
   showTitle?: boolean
-}>()
+}>(), {
+  data: () => []
+})
 
 const chartData = computed(() => {
+  if (props.items) return props.items
   if (!props.data.length) return []
 
   const map = new Map<number, number>()

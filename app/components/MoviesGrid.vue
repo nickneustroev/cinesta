@@ -10,6 +10,7 @@ const props = defineProps<{
   link?: string
   sortBy?: 'rating' | 'dateRated'
   showYearFilter?: boolean
+  preSorted?: boolean
 }>()
 
 const route = useRoute()
@@ -49,6 +50,9 @@ const genres = computed(() => {
 const selectedGenre = ref<string>((route.query.genre as string) || 'All')
 
 const sortedList = computed(() => {
+  if (props.preSorted) {
+    return props.data
+  }
   const list = [...props.data]
   if (props.sortBy === 'dateRated') {
     const filtered = list.filter(m => m.dateRated && m.dateRated !== props.importDate)
@@ -145,8 +149,8 @@ watch([selectedYear, selectedWatchedYear, selectedGenre], () => {
     </div>
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <MovieCard
-        v-for="(movie, index) in cards"
-        :key="index"
+        v-for="movie in cards"
+        :key="movie.uri"
         :movie="movie"
         :import-date="importDate"
       />

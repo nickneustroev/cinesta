@@ -1,14 +1,18 @@
 <script lang="ts" setup>
 import type { WatchedEntry } from '~/types/import'
+import type { MonthWatchedDatum } from '~/utils/home-analytics'
 
 defineOptions({
   tags: ['barcharts', 'vertical']
 })
 
-const props = defineProps<{
-  data: WatchedEntry[]
+const props = withDefaults(defineProps<{
+  data?: WatchedEntry[]
+  items?: MonthWatchedDatum[]
   showTitle?: boolean
-}>()
+}>(), {
+  data: () => []
+})
 
 const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -27,6 +31,7 @@ const earliestDate = computed(() => {
 })
 
 const chartData = computed(() => {
+  if (props.items) return props.items
   if (!props.data.length) return []
   const skipDate = earliestDate.value
 

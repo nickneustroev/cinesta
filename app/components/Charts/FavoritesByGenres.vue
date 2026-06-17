@@ -10,12 +10,16 @@ type DataProps = {
   count?: number
 }
 
-const props = defineProps<{
-  data: EnrichedMovie[]
+const props = withDefaults(defineProps<{
+  data?: EnrichedMovie[]
+  items?: DataProps[]
   showTitle?: boolean
-}>()
+}>(), {
+  data: () => []
+})
 
 const chartData = computed((): DataProps[] => {
+  if (props.items) return props.items
   if (!props.data.length) return []
 
   const map = new Map<string, number>()

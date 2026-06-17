@@ -1,5 +1,7 @@
 <script setup lang="ts">
 const { data, status, error, load, process, processFromFile } = useImportData()
+const analytics = useHomeAnalytics(data, { includeCharts: true })
+const chartAnalytics = computed(() => analytics.value?.charts)
 const toast = useToast()
 const { t } = useI18n()
 
@@ -11,6 +13,11 @@ const remainingSeconds = ref(0)
 const initialLoading = ref(true)
 const minRating = ref(3)
 let countdownTimer: ReturnType<typeof setInterval> | null = null
+let chartsIdleHandle: number | null = null
+let chartsFallbackTimer: ReturnType<typeof setTimeout> | null = null
+let chartsBatchTimer: ReturnType<typeof setTimeout> | null = null
+const showPrimaryCharts = ref(false)
+const showSecondaryCharts = ref(false)
 
 onMounted(async () => {
   await load()
@@ -19,6 +26,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (countdownTimer) clearInterval(countdownTimer)
+  resetChartSchedule()
 })
 
 function showSuccess() {
@@ -58,11 +66,13 @@ function resetUpload() {
     clearInterval(countdownTimer)
     countdownTimer = null
   }
+  resetChartSchedule()
 }
 
 async function runDemo() {
   showUpload.value = false
   uploadedFile.value = null
+  resetChartSchedule()
   await process(minRating.value, false)
   if (status.value === 'done') {
     showSuccess()
@@ -89,6 +99,7 @@ async function onFileSelect(file: File | null | undefined) {
   const est = await estimateProcessingTime(file, minRating.value)
   estimate.value = est
   if (est) startCountdown(est.seconds)
+  resetChartSchedule()
   await processFromFile(file, minRating.value)
   if (status.value === 'done') {
     showUpload.value = false
@@ -99,6 +110,57 @@ async function onFileSelect(file: File | null | undefined) {
     toast.add({ title: error.value || t('home.import_error'), color: 'error', icon: 'i-lucide-x-circle' })
   }
 }
+
+function resetChartSchedule() {
+  showPrimaryCharts.value = false
+  showSecondaryCharts.value = false
+
+  if (chartsIdleHandle !== null && typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
+    window.cancelIdleCallback(chartsIdleHandle)
+  }
+  if (chartsFallbackTimer) clearTimeout(chartsFallbackTimer)
+  if (chartsBatchTimer) clearTimeout(chartsBatchTimer)
+
+  chartsIdleHandle = null
+  chartsFallbackTimer = null
+  chartsBatchTimer = null
+}
+
+function scheduleCharts() {
+  if (typeof window === 'undefined') return
+
+  resetChartSchedule()
+
+  const revealCharts = () => {
+    showPrimaryCharts.value = true
+    chartsBatchTimer = globalThis.setTimeout(() => {
+      showSecondaryCharts.value = true
+      chartsBatchTimer = null
+    }, 120)
+  }
+
+  if ('requestIdleCallback' in window) {
+    chartsIdleHandle = window.requestIdleCallback(() => {
+      chartsIdleHandle = null
+      revealCharts()
+    }, { timeout: 200 })
+    return
+  }
+
+  chartsFallbackTimer = globalThis.setTimeout(() => {
+    chartsFallbackTimer = null
+    revealCharts()
+  }, 0)
+}
+
+watch(data, (value) => {
+  if (!value) {
+    resetChartSchedule()
+    return
+  }
+
+  scheduleCharts()
+})
 </script>
 
 <template>
@@ -206,39 +268,48 @@ async function onFileSelect(file: File | null | undefined) {
           {{ $t('home.top_movies') }}
         </h3>
         <MoviesGrid
-          :data="data.enriched"
+          :data="analytics?.moviesByRating || []"
           :import-date="data.stats.importDate"
+          pre-sorted
           link="/movies?tab=ratings"
         />
 
         <MoviesGrid
-          :data="data.enriched"
+          :data="analytics?.moviesByDateRated || []"
           :import-date="data.stats.importDate"
           :title="$t('home.last_movies_watched')"
-          sort-by="dateRated"
+          pre-sorted
           :limit="8"
           link="/movies?tab=last-watched"
         />
 
         <DirectorsGrid
-          :data="data.enriched"
+          :cards-data="analytics?.directorsByPoints"
           :limit="8"
-          sort-by="points"
           link="/directors?tab=points"
         />
         <DirectorsGrid
-          :data="data.enriched"
+          :cards-data="analytics?.directorsByHighest"
           :limit="8"
-          sort-by="highestMovieRating"
           link="/directors?tab=highest"
         />
-        <ChartsFavoritesByGenres :data="data.enriched" />
-        <ChartsGenreShareByYears :data="data.enriched" />
-        <ChartsGenreShareByWatchedYear :data="data.enriched" />
-        <ChartsRatingStackedByYears :data="data.ratings" />
-        <ChartsRatingShareByYears :data="data.ratings" />
-        <ChartsWatchedAllByRating :data="data.ratings" />
-        <ChartsAllMoviesCountByMonthWatched :data="data.watched" />
+        <template v-if="showPrimaryCharts && chartAnalytics">
+          <ChartsFavoritesByGenres :items="chartAnalytics.favoritesByGenres" />
+          <ChartsGenreShareByYears
+            :items="chartAnalytics.genreShareByYears"
+            :categories-data="chartAnalytics.genreCategories"
+          />
+          <ChartsGenreShareByWatchedYear
+            :items="chartAnalytics.genreShareByWatchedYear"
+            :categories-data="chartAnalytics.genreCategories"
+          />
+        </template>
+        <template v-if="showSecondaryCharts && chartAnalytics">
+          <ChartsRatingStackedByYears :items="chartAnalytics.ratingStackedByYears" />
+          <ChartsRatingShareByYears :items="chartAnalytics.ratingShareByYears" />
+          <ChartsWatchedAllByRating :items="chartAnalytics.watchedAllByRating" />
+          <ChartsAllMoviesCountByMonthWatched :items="chartAnalytics.allMoviesCountByMonthWatched" />
+        </template>
       </div>
     </template>
   </UContainer>

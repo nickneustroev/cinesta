@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const { data, status, load } = useImportData()
+const analytics = useHomeAnalytics(data, { includeCharts: false })
 const { t } = useI18n()
 const initialLoading = ref(true)
 
@@ -55,19 +56,17 @@ watch(activeTab, (tab) => {
       <div class="flex flex-col gap-y-8 pt-8">
         <DirectorsGrid
           v-if="activeTab === 'points'"
-          :data="data.enriched"
+          :cards-data="analytics?.directorsByPoints"
           :title="$t('pages.directors.title.points')"
           :limit="100"
           :show-more="100"
-          sort-by="points"
         />
         <DirectorsGrid
           v-if="activeTab === 'highest'"
-          :data="data.enriched"
+          :cards-data="analytics?.directorsByHighest"
           :title="$t('pages.directors.title.highest')"
           :limit="100"
           :show-more="100"
-          sort-by="highestMovieRating"
         />
       </div>
     </template>

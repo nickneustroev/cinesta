@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { EnrichedMovie } from '~/types/import'
+import type { DirectorGridCard } from '~/utils/home-analytics'
 
 defineOptions({
   tags: ['cards', 'page']
@@ -8,29 +9,23 @@ defineOptions({
 const { t } = useI18n()
 
 const props = withDefaults(defineProps<{
-  data: EnrichedMovie[]
+  data?: EnrichedMovie[]
   title?: string
   limit?: number
   link?: string
   sortBy?: 'points' | 'highestMovieRating'
   showMore?: number
+  cardsData?: DirectorGridCard[]
 }>(), {
+  data: () => [],
   limit: 20,
   sortBy: 'points'
 })
 
-interface DirectorCard {
-  director: string
-  photo: string | null
-  description: string
-  descriptionTitle?: string
-  movies: { title: string, year: number, userRating: number }[]
-  _sortValue: number
-}
-
 const visibleCount = ref(props.limit)
 
 const sortedList = computed(() => {
+  if (props.cardsData) return props.cardsData
   if (!props.data.length) return []
   return props.sortBy === 'points' ? computeByPoints() : computeByHighest()
 })
@@ -47,7 +42,7 @@ watch(() => props.sortBy, () => {
   visibleCount.value = props.limit
 })
 
-function computeByPoints(): DirectorCard[] {
+function computeByPoints(): DirectorGridCard[] {
   const map = new Map<string, { photo: string | null, points: number, breakdownParts: string[], movies: { title: string, year: number, userRating: number }[] }>()
 
   for (const movie of props.data) {
@@ -77,7 +72,7 @@ function computeByPoints(): DirectorCard[] {
     .sort((a, b) => b._sortValue - a._sortValue)
 }
 
-function computeByHighest(): DirectorCard[] {
+function computeByHighest(): DirectorGridCard[] {
   const map = new Map<string, { photo: string | null, maxRating: number, topCount: number, topMaxYear: number, movies: { title: string, year: number, userRating: number }[] }>()
 
   for (const movie of props.data) {
@@ -118,8 +113,8 @@ function computeByHighest(): DirectorCard[] {
     </h3>
     <UPageGrid :ui="{ base: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4' }">
       <DirectorCard
-        v-for="(card, index) in cards"
-        :key="index"
+        v-for="card in cards"
+        :key="card.director"
         v-bind="card"
       />
     </UPageGrid>

@@ -1,14 +1,19 @@
 <script lang="ts" setup>
 import type { EnrichedMovie } from '~/types/import'
+import type { ChartCategories, PercentByYearDatum } from '~/utils/home-analytics'
 
 defineOptions({
   tags: ['areacharts', 'stacked']
 })
 
-const props = defineProps<{
-  data: EnrichedMovie[]
+const props = withDefaults(defineProps<{
+  data?: EnrichedMovie[]
+  items?: PercentByYearDatum[]
+  categoriesData?: ChartCategories
   showTitle?: boolean
-}>()
+}>(), {
+  data: () => []
+})
 
 const GENRE_COLORS = [
   '#2563eb', '#dc2626', '#16a34a', '#ca8a04', '#9333ea',
@@ -35,6 +40,7 @@ function getYear(movie: EnrichedMovie): number | null {
 }
 
 const chartData = computed(() => {
+  if (props.items) return props.items
   if (!props.data.length) return []
 
   const genres = allGenres.value
@@ -46,7 +52,7 @@ const chartData = computed(() => {
 
   if (!withYear.length) return []
 
-  const minDate = withYear.reduce((min, x) => x.dateRated < min ? x.dateRated : min, withYear[0].dateRated)
+  const minDate = withYear.reduce((min, x) => x.dateRated < min ? x.dateRated : min, withYear[0]!.dateRated)
 
   const yearMap = new Map<number, Map<string, number>>()
   for (const { movie, year, dateRated } of withYear) {
@@ -75,22 +81,23 @@ const chartData = computed(() => {
       const remainders = pcts.map((v, i) => ({ i, r: v - Math.floor(v) }))
       remainders.sort((a, b) => b.r - a.r)
       for (let j = 0; j < Math.abs(diff); j++) {
-        rounded[remainders[j % remainders.length].i] += Math.sign(diff)
+        rounded[remainders[j % remainders.length]!.i]! += Math.sign(diff)
       }
     }
 
     const item: Record<string, string | number> = { year: String(year) }
     for (let i = 0; i < genres.length; i++) {
-      item[genres[i]] = rounded[i]
+      item[genres[i]!] = rounded[i]!
     }
     return item
   }).filter(Boolean) as Record<string, string | number>[]
 })
 
 const chartCategories = computed(() => {
+  if (props.categoriesData) return props.categoriesData
   const cats: Record<string, { name: string, color: string }> = {}
   allGenres.value.forEach((g, i) => {
-    cats[g] = { name: g, color: GENRE_COLORS[i % GENRE_COLORS.length] }
+    cats[g] = { name: g, color: GENRE_COLORS[i % GENRE_COLORS.length]! }
   })
   return cats
 })
