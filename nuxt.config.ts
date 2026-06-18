@@ -16,7 +16,8 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
 
   runtimeConfig: {
-    tmdbToken: ''
+    tmdbToken: '',
+    tmdbProxy: ''
   },
 
   compatibilityDate: '2025-01-15',

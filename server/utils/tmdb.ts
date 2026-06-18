@@ -2,6 +2,8 @@ import { createError } from 'h3'
 import { csvToObjects, toNumber } from './csv'
 import { dirname } from 'node:path'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { ProxyAgent, fetch as undiciFetch } from 'undici'
+import type { RequestInit as UndiciRequestInit, Response as UndiciResponse } from 'undici'
 import type { ImportData } from '~/types/import'
 
 const TMDB_BASE = 'https://api.themoviedb.org/3'
@@ -58,9 +60,81 @@ interface CachePaths {
 }
 
 const IS_DEV = import.meta.dev
+const TMDB_TIMEOUT_MS = 5000
+const proxyAgents = new Map<string, ProxyAgent>()
+
+interface TmdbRequestOptions {
+  proxyUrl?: string
+  timeoutMs?: number
+}
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+function normalizeTmdbToken(token: string) {
+  return token.startsWith('Bearer ') ? token : `Bearer ${token}`
+}
+
+function maskProxyUrl(proxyUrl: string) {
+  try {
+    const parsed = new URL(proxyUrl)
+    const username = parsed.username ? `${parsed.username}:***@` : ''
+    return `${parsed.protocol}//${username}${parsed.host}`
+  } catch {
+    return '[invalid proxy url]'
+  }
+}
+
+function getProxyAgent(proxyUrl: string) {
+  const existingAgent = proxyAgents.get(proxyUrl)
+  if (existingAgent) {
+    return existingAgent
+  }
+
+  const agent = new ProxyAgent(proxyUrl)
+  proxyAgents.set(proxyUrl, agent)
+  return agent
+}
+
+function createTmdbFetchOptions(token: string, options: TmdbRequestOptions = {}): UndiciRequestInit {
+  const { proxyUrl, timeoutMs } = options
+  const requestOptions: UndiciRequestInit = {
+    headers: { Authorization: normalizeTmdbToken(token) }
+  }
+
+  if (timeoutMs) {
+    requestOptions.signal = AbortSignal.timeout(timeoutMs)
+  }
+
+  if (proxyUrl) {
+    requestOptions.dispatcher = getProxyAgent(proxyUrl)
+  }
+
+  return requestOptions
+}
+
+async function probeTmdbProxy(proxyUrl: string, token: string): Promise<boolean> {
+  console.log(`[tmdb] proxy задан: ${maskProxyUrl(proxyUrl)}`)
+  console.log('[tmdb] проверка доступности proxy')
+
+  try {
+    const response = await undiciFetch(`${TMDB_BASE}/configuration`, createTmdbFetchOptions(token, {
+      proxyUrl,
+      timeoutMs: TMDB_TIMEOUT_MS
+    }))
+
+    if (!response.ok) {
+      console.log(`[tmdb] proxy доступен, но тестовый запрос к TMDB вернул статус ${response.status}`)
+      return false
+    }
+
+    console.log('[tmdb] proxy доступен и будет использоваться для запросов к TMDB')
+    return true
+  } catch (error) {
+    console.log('[tmdb] proxy недоступен, запросы к TMDB пойдут без него:', error)
+    return false
+  }
 }
 
 function readCacheFile(path: string): Record<string, CachedMovie> | null {
@@ -92,7 +166,7 @@ export function saveCache(paths: CachePaths, cache: Record<string, CachedMovie>)
   }
 }
 
-async function tmdbFetch<T>(url: string, token: string): Promise<T | null> {
+async function tmdbFetch<T>(url: string, token: string, proxyUrl?: string): Promise<T | null> {
   const now = Date.now()
   const elapsed = now - lastRequest
   if (elapsed < 1) {
@@ -100,11 +174,9 @@ async function tmdbFetch<T>(url: string, token: string): Promise<T | null> {
   }
   lastRequest = Date.now()
 
-  let res: Response
+  let res: UndiciResponse
   try {
-    res = await fetch(url, {
-      headers: { Authorization: token.startsWith('Bearer ') ? token : `Bearer ${token}` }
-    })
+    res = await undiciFetch(url, createTmdbFetchOptions(token, { proxyUrl }))
   } catch (e) {
     console.log('[tmdb] ошибка сети:', e)
     return null
@@ -113,7 +185,7 @@ async function tmdbFetch<T>(url: string, token: string): Promise<T | null> {
   if (res.status === 429) {
     console.log('[tmdb] rate limit, повтор через 2с')
     await sleep(2000)
-    return tmdbFetch(url, token)
+    return tmdbFetch(url, token, proxyUrl)
   }
 
   if (!res.ok) {
@@ -123,10 +195,11 @@ async function tmdbFetch<T>(url: string, token: string): Promise<T | null> {
   return await res.json() as T
 }
 
-async function searchMovie(title: string, year: number, token: string, locale: string): Promise<TmdbMovieSearchResult | null> {
+async function searchMovie(title: string, year: number, token: string, locale: string, proxyUrl?: string): Promise<TmdbMovieSearchResult | null> {
   const data = await tmdbFetch<TmdbSearchResponse>(
     `${TMDB_BASE}/search/movie?query=${encodeURIComponent(title)}&year=${year}&language=${locale}`,
-    token
+    token,
+    proxyUrl
   )
   if (!data?.results?.length) return null
 
@@ -147,10 +220,11 @@ async function searchMovie(title: string, year: number, token: string, locale: s
   return data.results.sort(byPop)[0] ?? null
 }
 
-async function getMovieDetails(tmdbId: number, token: string, locale: string): Promise<MovieDetails | null> {
+async function getMovieDetails(tmdbId: number, token: string, locale: string, proxyUrl?: string): Promise<MovieDetails | null> {
   const data = await tmdbFetch<TmdbMovieDetailsResponse>(
     `${TMDB_BASE}/movie/${tmdbId}?append_to_response=credits&language=${locale}`,
-    token
+    token,
+    proxyUrl
   )
   if (!data) return null
   const directors = data.credits?.crew?.filter(c => c.job === 'Director') || []
@@ -173,20 +247,31 @@ export async function processCSVData(
   minRating = 3,
   tmdbRequired = true
 ): Promise<ImportData> {
-  const { tmdbToken } = useRuntimeConfig()
+  const { tmdbToken, tmdbProxy } = useRuntimeConfig()
   console.log('[process] подготовка данных началась')
+
+  const proxyUrl = tmdbProxy.trim() || undefined
+  let shouldUseProxy = false
+
+  if (proxyUrl && tmdbToken) {
+    shouldUseProxy = await probeTmdbProxy(proxyUrl, tmdbToken)
+  } else if (proxyUrl) {
+    console.log('[tmdb] proxy задан, но проверка пропущена: tmdb token не задан')
+  } else {
+    console.log('[tmdb] proxy не задан')
+  }
 
   // Проверка подключения к TMDB
   let tmdbAvailable = false
   if (tmdbToken) {
     try {
-      const testRes = await fetch(`${TMDB_BASE}/configuration`, {
-        headers: { Authorization: tmdbToken.startsWith('Bearer ') ? tmdbToken : `Bearer ${tmdbToken}` },
-        signal: AbortSignal.timeout(5000)
-      })
+      const testRes = await undiciFetch(`${TMDB_BASE}/configuration`, createTmdbFetchOptions(tmdbToken, {
+        proxyUrl: shouldUseProxy ? proxyUrl : undefined,
+        timeoutMs: TMDB_TIMEOUT_MS
+      }))
       if (testRes.ok) {
         tmdbAvailable = true
-        console.log('[tmdb] подключение обнаружено и успешно')
+        console.log(`[tmdb] подключение обнаружено и успешно${shouldUseProxy ? ' через proxy' : ''}`)
       } else {
         console.log('[tmdb] подключение обнаружено, но tmdb api не отвечает (статус: ' + testRes.status + ')')
       }
@@ -274,11 +359,11 @@ export async function processCSVData(
       const batch = toFetch.slice(i, i + BATCH_SIZE)
 
       const searches = await Promise.all(
-        batch.map(m => searchMovie(m.title, m.year, tmdbToken, locale))
+        batch.map(m => searchMovie(m.title, m.year, tmdbToken, locale, shouldUseProxy ? proxyUrl : undefined))
       )
 
       const details = await Promise.all(
-        searches.map(s => s ? getMovieDetails(s.id, tmdbToken, locale) : null)
+        searches.map(s => s ? getMovieDetails(s.id, tmdbToken, locale, shouldUseProxy ? proxyUrl : undefined) : null)
       )
 
       for (let j = 0; j < batch.length; j++) {
