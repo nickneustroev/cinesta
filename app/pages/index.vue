@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { buildHomeChartAnalytics } from '~/utils/home-analytics'
-
 const { data, status, error, load, process, processFromFile } = useImportData()
 const analytics = useHomeAnalytics(data, { includeCharts: false })
 const toast = useToast()
@@ -13,26 +11,46 @@ const estimate = ref<{ count: number, seconds: number } | null>(null)
 const remainingSeconds = ref(0)
 const initialLoading = ref(true)
 const minRating = ref(3)
-const chartBatch = ref(0)
-const analyticsSection = useTemplateRef<HTMLElement>('analyticsSection')
-const analyticsBatchTwoTrigger = useTemplateRef<HTMLElement>('analyticsBatchTwoTrigger')
-const analyticsBatchThreeTrigger = useTemplateRef<HTMLElement>('analyticsBatchThreeTrigger')
+const shouldLoadAnalyticsSection = ref(false)
+const analyticsSectionTrigger = useTemplateRef<HTMLElement>('analyticsSectionTrigger')
 let countdownTimer: ReturnType<typeof setInterval> | null = null
-let analyticsObserver: IntersectionObserver | null = null
-let analyticsBatchTwoObserver: IntersectionObserver | null = null
-let analyticsBatchThreeObserver: IntersectionObserver | null = null
+let analyticsTriggerObserver: IntersectionObserver | null = null
+let analyticsFallbackTimer: ReturnType<typeof setTimeout> | null = null
+let initialLoadingTimer: ReturnType<typeof setTimeout> | null = null
 
-onMounted(async () => {
-  await load()
-  initialLoading.value = false
+onMounted(() => {
+  initialLoadingTimer = setTimeout(() => {
+    initialLoading.value = false
+    initialLoadingTimer = null
+  }, 1200)
+
+  void load().finally(() => {
+    if (initialLoadingTimer) {
+      clearTimeout(initialLoadingTimer)
+      initialLoadingTimer = null
+    }
+    initialLoading.value = false
+  })
 })
 
 onUnmounted(() => {
   if (countdownTimer) clearInterval(countdownTimer)
-  analyticsObserver?.disconnect()
-  analyticsBatchTwoObserver?.disconnect()
-  analyticsBatchThreeObserver?.disconnect()
+  analyticsTriggerObserver?.disconnect()
+  if (analyticsFallbackTimer) clearTimeout(analyticsFallbackTimer)
+  if (initialLoadingTimer) clearTimeout(initialLoadingTimer)
 })
+
+function loadAnalyticsSection() {
+  if (shouldLoadAnalyticsSection.value) return
+
+  shouldLoadAnalyticsSection.value = true
+  analyticsTriggerObserver?.disconnect()
+  analyticsTriggerObserver = null
+  if (analyticsFallbackTimer) {
+    clearTimeout(analyticsFallbackTimer)
+    analyticsFallbackTimer = null
+  }
+}
 
 function showSuccess() {
   toast.add({
@@ -113,71 +131,38 @@ async function onFileSelect(file: File | null | undefined) {
   }
 }
 
-const chartAnalytics = computed(() => {
-  if (chartBatch.value === 0 || !data.value) return null
-  return buildHomeChartAnalytics(data.value)
-})
+watch([data, analyticsSectionTrigger, shouldLoadAnalyticsSection], ([currentData, triggerEl, isLoaded], _prev, onCleanup) => {
+  if (!currentData || !triggerEl || isLoaded) return
 
-watch([data, analyticsSection, chartBatch], ([currentData, sectionEl, currentBatch], _prev, onCleanup) => {
-  if (!currentData || !sectionEl || currentBatch > 0) return
-
-  analyticsObserver?.disconnect()
-  analyticsObserver = new IntersectionObserver((entries) => {
+  analyticsTriggerObserver?.disconnect()
+  analyticsTriggerObserver = new IntersectionObserver((entries) => {
     if (!entries.some(entry => entry.isIntersecting)) return
 
-    chartBatch.value = 1
-    analyticsObserver?.disconnect()
-    analyticsObserver = null
+    loadAnalyticsSection()
   }, {
-    rootMargin: '300px 0px'
+    rootMargin: '350px 0px'
   })
 
-  analyticsObserver.observe(sectionEl)
+  analyticsTriggerObserver.observe(triggerEl)
   onCleanup(() => {
-    analyticsObserver?.disconnect()
-    analyticsObserver = null
+    analyticsTriggerObserver?.disconnect()
+    analyticsTriggerObserver = null
   })
 }, { flush: 'post' })
 
-watch([chartBatch, analyticsBatchTwoTrigger], ([currentBatch, triggerEl], _prev, onCleanup) => {
-  if (currentBatch !== 1 || !triggerEl) return
+watch([data, shouldLoadAnalyticsSection], ([currentData, isLoaded], _prev, onCleanup) => {
+  if (!currentData || isLoaded) return
 
-  analyticsBatchTwoObserver?.disconnect()
-  analyticsBatchTwoObserver = new IntersectionObserver((entries) => {
-    if (!entries.some(entry => entry.isIntersecting)) return
+  if (analyticsFallbackTimer) clearTimeout(analyticsFallbackTimer)
+  analyticsFallbackTimer = setTimeout(() => {
+    loadAnalyticsSection()
+  }, 1500)
 
-    chartBatch.value = 2
-    analyticsBatchTwoObserver?.disconnect()
-    analyticsBatchTwoObserver = null
-  }, {
-    rootMargin: '250px 0px'
-  })
-
-  analyticsBatchTwoObserver.observe(triggerEl)
   onCleanup(() => {
-    analyticsBatchTwoObserver?.disconnect()
-    analyticsBatchTwoObserver = null
-  })
-}, { flush: 'post' })
-
-watch([chartBatch, analyticsBatchThreeTrigger], ([currentBatch, triggerEl], _prev, onCleanup) => {
-  if (currentBatch !== 2 || !triggerEl) return
-
-  analyticsBatchThreeObserver?.disconnect()
-  analyticsBatchThreeObserver = new IntersectionObserver((entries) => {
-    if (!entries.some(entry => entry.isIntersecting)) return
-
-    chartBatch.value = 3
-    analyticsBatchThreeObserver?.disconnect()
-    analyticsBatchThreeObserver = null
-  }, {
-    rootMargin: '250px 0px'
-  })
-
-  analyticsBatchThreeObserver.observe(triggerEl)
-  onCleanup(() => {
-    analyticsBatchThreeObserver?.disconnect()
-    analyticsBatchThreeObserver = null
+    if (analyticsFallbackTimer) {
+      clearTimeout(analyticsFallbackTimer)
+      analyticsFallbackTimer = null
+    }
   })
 }, { flush: 'post' })
 </script>
@@ -313,58 +298,24 @@ watch([chartBatch, analyticsBatchThreeTrigger], ([currentBatch, triggerEl], _pre
           link="/directors?tab=highest"
         />
 
-        <section
-          ref="analyticsSection"
-          class="flex flex-col gap-y-8"
-        >
-          <h3 class="text-2xl font-semibold">
-            Analytics
-          </h3>
+        <section class="flex flex-col gap-y-8">
+          <div
+            ref="analyticsSectionTrigger"
+            class="h-px w-full"
+            aria-hidden="true"
+          />
+
+          <LazyHomeAnalyticsSection
+            v-if="shouldLoadAnalyticsSection"
+            :data="data"
+          />
 
           <div
-            v-if="chartBatch === 0"
+            v-else
             class="rounded-2xl border border-accented bg-default/70 px-6 py-10 text-center text-sm text-muted"
           >
             {{ $t('home.loading') }}
           </div>
-
-          <template v-else-if="chartAnalytics">
-            <LazyChartsFavoritesByGenres :items="chartAnalytics.favoritesByGenres" />
-            <LazyChartsGenreShareByYears
-              :items="chartAnalytics.genreShareByYears"
-              :categories-data="chartAnalytics.genreCategories"
-            />
-
-            <div
-              v-if="chartBatch === 1"
-              ref="analyticsBatchTwoTrigger"
-              class="rounded-2xl border border-dashed border-accented bg-default/50 px-6 py-8 text-center text-sm text-muted"
-            >
-              Scroll to load more analytics
-            </div>
-
-            <template v-if="chartBatch >= 2">
-              <LazyChartsGenreShareByWatchedYear
-                :items="chartAnalytics.genreShareByWatchedYear"
-                :categories-data="chartAnalytics.genreCategories"
-              />
-              <LazyChartsRatingStackedByYears :items="chartAnalytics.ratingStackedByYears" />
-
-              <div
-                v-if="chartBatch === 2"
-                ref="analyticsBatchThreeTrigger"
-                class="rounded-2xl border border-dashed border-accented bg-default/50 px-6 py-8 text-center text-sm text-muted"
-              >
-                Scroll to load the remaining analytics
-              </div>
-            </template>
-
-            <template v-if="chartBatch >= 3">
-              <LazyChartsRatingShareByYears :items="chartAnalytics.ratingShareByYears" />
-              <LazyChartsWatchedAllByRating :items="chartAnalytics.watchedAllByRating" />
-              <LazyChartsAllMoviesCountByMonthWatched :items="chartAnalytics.allMoviesCountByMonthWatched" />
-            </template>
-          </template>
         </section>
       </div>
     </template>
