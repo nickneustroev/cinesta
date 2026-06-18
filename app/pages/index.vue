@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const { data, status, error, load, process, processFromFile } = useImportData()
-const analytics = useHomeAnalytics(data, { includeCharts: false })
+const analytics = useHomeAnalytics(data, { includeCharts: true })
+const chartAnalytics = computed(() => analytics.value?.charts)
 const toast = useToast()
 const { t } = useI18n()
 
@@ -11,46 +12,22 @@ const estimate = ref<{ count: number, seconds: number } | null>(null)
 const remainingSeconds = ref(0)
 const initialLoading = ref(true)
 const minRating = ref(3)
-const shouldLoadAnalyticsSection = ref(false)
-const analyticsSectionTrigger = useTemplateRef<HTMLElement>('analyticsSectionTrigger')
 let countdownTimer: ReturnType<typeof setInterval> | null = null
-let analyticsTriggerObserver: IntersectionObserver | null = null
-let analyticsFallbackTimer: ReturnType<typeof setTimeout> | null = null
-let initialLoadingTimer: ReturnType<typeof setTimeout> | null = null
+let chartsIdleHandle: number | null = null
+let chartsFallbackTimer: ReturnType<typeof setTimeout> | null = null
+let chartsBatchTimer: ReturnType<typeof setTimeout> | null = null
+const showPrimaryCharts = ref(false)
+const showSecondaryCharts = ref(false)
 
-onMounted(() => {
-  initialLoadingTimer = setTimeout(() => {
-    initialLoading.value = false
-    initialLoadingTimer = null
-  }, 1200)
-
-  void load().finally(() => {
-    if (initialLoadingTimer) {
-      clearTimeout(initialLoadingTimer)
-      initialLoadingTimer = null
-    }
-    initialLoading.value = false
-  })
+onMounted(async () => {
+  await load()
+  initialLoading.value = false
 })
 
 onUnmounted(() => {
   if (countdownTimer) clearInterval(countdownTimer)
-  analyticsTriggerObserver?.disconnect()
-  if (analyticsFallbackTimer) clearTimeout(analyticsFallbackTimer)
-  if (initialLoadingTimer) clearTimeout(initialLoadingTimer)
+  resetChartSchedule()
 })
-
-function loadAnalyticsSection() {
-  if (shouldLoadAnalyticsSection.value) return
-
-  shouldLoadAnalyticsSection.value = true
-  analyticsTriggerObserver?.disconnect()
-  analyticsTriggerObserver = null
-  if (analyticsFallbackTimer) {
-    clearTimeout(analyticsFallbackTimer)
-    analyticsFallbackTimer = null
-  }
-}
 
 function showSuccess() {
   toast.add({
@@ -89,11 +66,13 @@ function resetUpload() {
     clearInterval(countdownTimer)
     countdownTimer = null
   }
+  resetChartSchedule()
 }
 
 async function runDemo() {
   showUpload.value = false
   uploadedFile.value = null
+  resetChartSchedule()
   await process(minRating.value, false)
   if (status.value === 'done') {
     showSuccess()
@@ -120,6 +99,7 @@ async function onFileSelect(file: File | null | undefined) {
   const est = await estimateProcessingTime(file, minRating.value)
   estimate.value = est
   if (est) startCountdown(est.seconds)
+  resetChartSchedule()
   await processFromFile(file, minRating.value)
   if (status.value === 'done') {
     showUpload.value = false
@@ -131,40 +111,56 @@ async function onFileSelect(file: File | null | undefined) {
   }
 }
 
-watch([data, analyticsSectionTrigger, shouldLoadAnalyticsSection], ([currentData, triggerEl, isLoaded], _prev, onCleanup) => {
-  if (!currentData || !triggerEl || isLoaded) return
+function resetChartSchedule() {
+  showPrimaryCharts.value = false
+  showSecondaryCharts.value = false
 
-  analyticsTriggerObserver?.disconnect()
-  analyticsTriggerObserver = new IntersectionObserver((entries) => {
-    if (!entries.some(entry => entry.isIntersecting)) return
+  if (chartsIdleHandle !== null && typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
+    window.cancelIdleCallback(chartsIdleHandle)
+  }
+  if (chartsFallbackTimer) clearTimeout(chartsFallbackTimer)
+  if (chartsBatchTimer) clearTimeout(chartsBatchTimer)
 
-    loadAnalyticsSection()
-  }, {
-    rootMargin: '350px 0px'
-  })
+  chartsIdleHandle = null
+  chartsFallbackTimer = null
+  chartsBatchTimer = null
+}
 
-  analyticsTriggerObserver.observe(triggerEl)
-  onCleanup(() => {
-    analyticsTriggerObserver?.disconnect()
-    analyticsTriggerObserver = null
-  })
-}, { flush: 'post' })
+function scheduleCharts() {
+  if (typeof window === 'undefined') return
 
-watch([data, shouldLoadAnalyticsSection], ([currentData, isLoaded], _prev, onCleanup) => {
-  if (!currentData || isLoaded) return
+  resetChartSchedule()
 
-  if (analyticsFallbackTimer) clearTimeout(analyticsFallbackTimer)
-  analyticsFallbackTimer = setTimeout(() => {
-    loadAnalyticsSection()
-  }, 1500)
+  const revealCharts = () => {
+    showPrimaryCharts.value = true
+    chartsBatchTimer = globalThis.setTimeout(() => {
+      showSecondaryCharts.value = true
+      chartsBatchTimer = null
+    }, 120)
+  }
 
-  onCleanup(() => {
-    if (analyticsFallbackTimer) {
-      clearTimeout(analyticsFallbackTimer)
-      analyticsFallbackTimer = null
-    }
-  })
-}, { flush: 'post' })
+  if ('requestIdleCallback' in window) {
+    chartsIdleHandle = window.requestIdleCallback(() => {
+      chartsIdleHandle = null
+      revealCharts()
+    }, { timeout: 200 })
+    return
+  }
+
+  chartsFallbackTimer = globalThis.setTimeout(() => {
+    chartsFallbackTimer = null
+    revealCharts()
+  }, 0)
+}
+
+watch(data, (value) => {
+  if (!value) {
+    resetChartSchedule()
+    return
+  }
+
+  scheduleCharts()
+})
 </script>
 
 <template>
@@ -297,26 +293,23 @@ watch([data, shouldLoadAnalyticsSection], ([currentData, isLoaded], _prev, onCle
           :limit="8"
           link="/directors?tab=highest"
         />
-
-        <section class="flex flex-col gap-y-8">
-          <div
-            ref="analyticsSectionTrigger"
-            class="h-px w-full"
-            aria-hidden="true"
+        <template v-if="showPrimaryCharts && chartAnalytics">
+          <ChartsFavoritesByGenres :items="chartAnalytics.favoritesByGenres" />
+          <ChartsGenreShareByYears
+            :items="chartAnalytics.genreShareByYears"
+            :categories-data="chartAnalytics.genreCategories"
           />
-
-          <LazyHomeAnalyticsSection
-            v-if="shouldLoadAnalyticsSection"
-            :data="data"
+          <ChartsGenreShareByWatchedYear
+            :items="chartAnalytics.genreShareByWatchedYear"
+            :categories-data="chartAnalytics.genreCategories"
           />
-
-          <div
-            v-else
-            class="rounded-2xl border border-accented bg-default/70 px-6 py-10 text-center text-sm text-muted"
-          >
-            {{ $t('home.loading') }}
-          </div>
-        </section>
+        </template>
+        <template v-if="showSecondaryCharts && chartAnalytics">
+          <ChartsRatingStackedByYears :items="chartAnalytics.ratingStackedByYears" />
+          <ChartsRatingShareByYears :items="chartAnalytics.ratingShareByYears" />
+          <ChartsWatchedAllByRating :items="chartAnalytics.watchedAllByRating" />
+          <ChartsAllMoviesCountByMonthWatched :items="chartAnalytics.allMoviesCountByMonthWatched" />
+        </template>
       </div>
     </template>
   </UContainer>

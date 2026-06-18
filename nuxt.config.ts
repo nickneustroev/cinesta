@@ -1,5 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
+
   modules: [
     '@nuxt/eslint',
     '@nuxt/ui',
@@ -16,9 +17,6 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     tmdbToken: ''
-  },
-  experimental: {
-    spaLoadingTemplateLocation: 'body'
   },
 
   compatibilityDate: '2025-01-15',

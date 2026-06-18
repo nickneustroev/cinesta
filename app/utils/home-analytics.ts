@@ -117,18 +117,6 @@ export function buildHomeAnalytics(data: ImportData, options: HomeAnalyticsOptio
   }
 }
 
-export interface HomeChartAnalytics {
-  favoritesByGenres: GenreCountDatum[]
-  genreShareByYears: PercentByYearDatum[]
-  genreShareByWatchedYear: PercentByYearDatum[]
-  genreCategories: ChartCategories
-  ratingStackedByYears: CountByYearDatum[]
-  ratingShareByYears: PercentByYearDatum[]
-  ratingCategories: ChartCategories
-  watchedAllByRating: RatingCountDatum[]
-  allMoviesCountByMonthWatched: MonthWatchedDatum[]
-}
-
 function sortMoviesByRating(movies: EnrichedMovie[]) {
   return [...movies].sort((a, b) => {
     const ratingDiff = b.userRating - a.userRating
@@ -252,23 +240,6 @@ function buildChartAnalytics(data: ImportData, directorMap: Map<string, Director
     directorsPoints: buildDirectorsPointsChart(directorMap),
     directorsAvgRating: buildDirectorsAvgRatingChart(directorMap),
     directorsAvgRatingMin2: buildDirectorsAvgRatingChart(directorMap, 2)
-  }
-}
-
-export function buildHomeChartAnalytics(data: ImportData): HomeChartAnalytics {
-  const directorMap = buildDirectorAggregateMap(data.enriched)
-  const charts = buildChartAnalytics(data, directorMap)
-
-  return {
-    favoritesByGenres: charts.favoritesByGenres,
-    genreShareByYears: charts.genreShareByYears,
-    genreShareByWatchedYear: charts.genreShareByWatchedYear,
-    genreCategories: charts.genreCategories,
-    ratingStackedByYears: charts.ratingStackedByYears,
-    ratingShareByYears: charts.ratingShareByYears,
-    ratingCategories: charts.ratingCategories,
-    watchedAllByRating: charts.watchedAllByRating,
-    allMoviesCountByMonthWatched: charts.allMoviesCountByMonthWatched
   }
 }
 
