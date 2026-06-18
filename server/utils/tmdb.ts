@@ -76,16 +76,6 @@ function normalizeTmdbToken(token: string) {
   return token.startsWith('Bearer ') ? token : `Bearer ${token}`
 }
 
-function maskProxyUrl(proxyUrl: string) {
-  try {
-    const parsed = new URL(proxyUrl)
-    const username = parsed.username ? `${parsed.username}:***@` : ''
-    return `${parsed.protocol}//${username}${parsed.host}`
-  } catch {
-    return '[invalid proxy url]'
-  }
-}
-
 function getProxyAgent(proxyUrl: string) {
   const existingAgent = proxyAgents.get(proxyUrl)
   if (existingAgent) {
@@ -115,7 +105,7 @@ function createTmdbFetchOptions(token: string, options: TmdbRequestOptions = {})
 }
 
 async function probeTmdbProxy(proxyUrl: string, token: string): Promise<boolean> {
-  console.log(`[tmdb] proxy задан: ${maskProxyUrl(proxyUrl)}`)
+  console.log('[tmdb] proxy задан')
   console.log('[tmdb] проверка доступности proxy')
 
   try {
