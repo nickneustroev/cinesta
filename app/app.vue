@@ -13,8 +13,8 @@ useHead({
   }
 })
 
-const title = computed(() => `${t('nav.home')} - Cinecha`)
-const description = 'Cinecha помогает загружать экспорт Letterboxd, обогащать фильмы данными из TMDB и смотреть аналитику по фильмам, режиссерам и оценкам.'
+const title = computed(() => `${t('nav.home')} - Cinesta`)
+const description = 'Cinesta помогает загружать экспорт Letterboxd, обогащать фильмы данными из TMDB и смотреть аналитику по фильмам, режиссерам и оценкам.'
 
 useSeoMeta({
   title,
@@ -38,7 +38,7 @@ function switchLocale(code: string) {
             to="/"
             class="text-2xl font-bold shrink-0"
           >
-            Cinecha
+            Cinesta
           </NuxtLink>
 
           <UNavigationMenu
@@ -67,7 +67,7 @@ function switchLocale(code: string) {
         <UColorModeButton />
 
         <UButton
-          to="https://github.com/nickneustroev/cinecha"
+          to="https://github.com/nickneustroev/cinesta"
           target="_blank"
           icon="i-simple-icons-github"
           aria-label="GitHub"
@@ -90,7 +90,7 @@ function switchLocale(code: string) {
 
       <template #right>
         <UButton
-          to="https://github.com/nickneustroev/cinecha"
+          to="https://github.com/nickneustroev/cinesta"
           target="_blank"
           icon="i-simple-icons-github"
           aria-label="GitHub"
