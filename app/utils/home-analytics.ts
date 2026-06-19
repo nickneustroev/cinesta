@@ -117,6 +117,10 @@ export function buildHomeAnalytics(data: ImportData, options: HomeAnalyticsOptio
   }
 }
 
+export function formatDirectorPoints(points: number) {
+  return (Math.round(points) / 10).toFixed(1)
+}
+
 function sortMoviesByRating(movies: EnrichedMovie[]) {
   return [...movies].sort((a, b) => {
     const ratingDiff = b.userRating - a.userRating
@@ -173,7 +177,7 @@ function buildDirectorAggregateMap(movies: EnrichedMovie[]) {
 function buildDirectorsByPoints(map: Map<string, DirectorAggregate>, label: string) {
   return Array.from(map.entries())
     .map(([director, entry]) => {
-      const displayPoints = Math.round(entry.points / 10)
+      const displayPoints = formatDirectorPoints(entry.points)
 
       return {
         director,

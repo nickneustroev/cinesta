@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { EnrichedMovie } from '~/types/import'
-import type { DirectorGridCard } from '~/utils/home-analytics'
+import { formatDirectorPoints, type DirectorGridCard } from '~/utils/home-analytics'
 
 defineOptions({
   tags: ['cards', 'page']
@@ -59,7 +59,7 @@ function computeByPoints(): DirectorGridCard[] {
 
   return Array.from(map.entries())
     .map(([director, entry]) => {
-      const displayPoints = Math.round(entry.points / 10)
+      const displayPoints = formatDirectorPoints(entry.points)
       return {
         director,
         photo: entry.photo,
