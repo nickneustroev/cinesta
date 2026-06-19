@@ -55,13 +55,14 @@ pnpm preview
 Проект читает переменные из `.env`.
 
 ```env
-NUXT_TMDB_TOKEN=Bearer <tmdb-api-read-access-token>
+NUXT_TMDB_TOKEN=<tmdb-api-read-access-token>
 NUXT_TMDB_PROXY=http://user:password@host:port
 ```
 
 `NUXT_TMDB_TOKEN`
 
 - токен TMDB API Read Access Token
+- в `.env` хранится сам токен, без префикса `Bearer`
 - без него пользовательский импорт не сможет догружать данные из TMDB
 
 `NUXT_TMDB_PROXY`
