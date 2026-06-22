@@ -9,12 +9,11 @@ import type { ImportData } from '~/types/import'
 const TMDB_BASE = 'https://api.themoviedb.org/3'
 const RATE_LIMIT = 30
 const BATCH_SIZE = 10
-const ALT_FALLBACK_LIMIT = 10
-const DISCOVERY_FALLBACK_LIMIT = 15
+const ALT_FALLBACK_LIMIT = 8
+const DISCOVERY_FALLBACK_LIMIT = 12
+const HIGH_CONFIDENCE_SCORE = 150
 
 let lastRequest = 0
-
-type TmdbMediaType = 'movie' | 'tv'
 
 interface TmdbMovieSearchResult {
   id: number
@@ -27,20 +26,8 @@ interface TmdbMovieSearchResult {
   overview?: string
 }
 
-interface TmdbTvSearchResult {
-  id: number
-  name: string
-  original_name?: string
-  first_air_date?: string
-  popularity?: number
-  vote_count?: number
-  poster_path?: string | null
-  overview?: string
-}
-
 interface TmdbSearchCandidate {
   id: number
-  mediaType: TmdbMediaType
   title: string
   original_title?: string
   release_date?: string
@@ -94,18 +81,6 @@ interface TmdbMovieDetailsResponse {
   }
 }
 
-interface TmdbTvCreator {
-  name: string
-  profile_path?: string | null
-}
-
-interface TmdbTvDetailsResponse {
-  name?: string | null
-  genres?: TmdbGenre[]
-  poster_path?: string | null
-  created_by?: TmdbTvCreator[]
-}
-
 interface MovieDetails {
   title: string | null
   genres: string[]
@@ -142,8 +117,10 @@ interface CachePaths {
 
 const IS_DEV = import.meta.dev
 const TMDB_TIMEOUT_MS = 5000
-const MATCH_VERSION = 6
+const MATCH_VERSION = 7
 const proxyAgents = new Map<string, ProxyAgent>()
+const alternativeTitlesCache = new Map<number, string[]>()
+const translatedTitlesCache = new Map<number, string[]>()
 
 interface TmdbRequestOptions {
   proxyUrl?: string
@@ -445,6 +422,11 @@ function resolveMatchStatus(score: number): MatchStatus {
   return 'not_found'
 }
 
+function shouldReturnEarly(match: MatchResult): boolean {
+  return (match.status === 'exact' || match.status === 'probable')
+    && match.score >= HIGH_CONFIDENCE_SCORE
+}
+
 function getAmbiguityThreshold(score: number): number {
   if (score >= 130) {
     return 5
@@ -491,7 +473,6 @@ function pickBestCandidate(inputTitle: string, inputYear: number, results: TmdbS
 function toMovieCandidate(candidate: TmdbMovieSearchResult): TmdbSearchCandidate {
   return {
     id: candidate.id,
-    mediaType: 'movie',
     title: candidate.title,
     original_title: candidate.original_title,
     release_date: candidate.release_date,
@@ -502,42 +483,42 @@ function toMovieCandidate(candidate: TmdbMovieSearchResult): TmdbSearchCandidate
   }
 }
 
-function toTvCandidate(candidate: TmdbTvSearchResult): TmdbSearchCandidate {
-  return {
-    id: candidate.id,
-    mediaType: 'tv',
-    title: candidate.name,
-    original_title: candidate.original_name,
-    release_date: candidate.first_air_date,
-    popularity: candidate.popularity,
-    vote_count: candidate.vote_count,
-    poster_path: candidate.poster_path,
-    overview: candidate.overview
-  }
-}
-
 async function getAlternativeTitles(candidate: TmdbSearchCandidate, token: string, proxyUrl?: string): Promise<string[]> {
+  const cached = alternativeTitlesCache.get(candidate.id)
+  if (cached) {
+    return cached
+  }
+
   const data = await tmdbFetch<TmdbAlternativeTitlesResponse>(
-    `${TMDB_BASE}/${candidate.mediaType}/${candidate.id}/alternative_titles`,
+    `${TMDB_BASE}/movie/${candidate.id}/alternative_titles`,
     token,
     proxyUrl
   )
 
-  return data?.titles
+  const titles = data?.titles
     ?.map(title => title.title?.trim() ?? '')
     .filter(Boolean) ?? []
+  alternativeTitlesCache.set(candidate.id, titles)
+  return titles
 }
 
 async function getTranslatedTitles(candidate: TmdbSearchCandidate, token: string, proxyUrl?: string): Promise<string[]> {
+  const cached = translatedTitlesCache.get(candidate.id)
+  if (cached) {
+    return cached
+  }
+
   const data = await tmdbFetch<TmdbTranslationsResponse>(
-    `${TMDB_BASE}/${candidate.mediaType}/${candidate.id}/translations`,
+    `${TMDB_BASE}/movie/${candidate.id}/translations`,
     token,
     proxyUrl
   )
 
-  return data?.translations
+  const titles = data?.translations
     ?.map(translation => translation.data?.title?.trim() || translation.data?.name?.trim() || '')
     .filter(Boolean) ?? []
+  translatedTitlesCache.set(candidate.id, titles)
+  return titles
 }
 
 function getSearchRankBonus(index: number): number {
@@ -586,7 +567,14 @@ async function searchMovie(title: string, year: number, _uri: string, token: str
   const yearScopedResults: TmdbSearchCandidate[] = (yearScoped?.results ?? []).map(toMovieCandidate)
   const titleOnlyResults: TmdbSearchCandidate[] = (titleOnly?.results ?? []).map(toMovieCandidate)
   const firstMatch = pickBestCandidate(title, year, yearScopedResults)
+  if (shouldReturnEarly(firstMatch)) {
+    return firstMatch
+  }
+
   const secondMatch = pickBestCandidate(title, year, titleOnlyResults)
+  if (shouldReturnEarly(secondMatch)) {
+    return secondMatch
+  }
 
   const mergedCandidates: TmdbSearchCandidate[] = [
     ...yearScopedResults,
@@ -639,121 +627,21 @@ async function searchMovie(title: string, year: number, _uri: string, token: str
   }
 
   return secondMatch.status === 'exact' ? secondMatch : { candidate: null, status, score: best.score }
-}
-
-async function searchTv(title: string, year: number, token: string, locale: string, proxyUrl?: string): Promise<MatchResult> {
-  const yearScoped = await tmdbFetch<TmdbSearchResponse<TmdbTvSearchResult>>(
-    `${TMDB_BASE}/search/tv?query=${encodeURIComponent(title)}&first_air_date_year=${year}&language=${locale}`,
-    token,
-    proxyUrl
-  )
-  const titleOnly = await tmdbFetch<TmdbSearchResponse<TmdbTvSearchResult>>(
-    `${TMDB_BASE}/search/tv?query=${encodeURIComponent(title)}&language=${locale}`,
-    token,
-    proxyUrl
-  )
-  const yearScopedResults: TmdbSearchCandidate[] = (yearScoped?.results ?? []).map(toTvCandidate)
-  const titleOnlyResults: TmdbSearchCandidate[] = (titleOnly?.results ?? []).map(toTvCandidate)
-  const firstMatch = pickBestCandidate(title, year, yearScopedResults)
-  const secondMatch = pickBestCandidate(title, year, titleOnlyResults)
-
-  const mergedCandidates: TmdbSearchCandidate[] = [
-    ...yearScopedResults,
-    ...titleOnlyResults
-  ]
-  const dedupedCandidates: TmdbSearchCandidate[] = [...new Map(mergedCandidates.map(candidate => [candidate.id, candidate] as const)).values()]
-  const rawFallbackCandidates: TmdbSearchCandidate[] = selectFallbackCandidates(dedupedCandidates)
-
-  if (rawFallbackCandidates.length === 0) {
-    return secondMatch.status === 'exact' ? secondMatch : firstMatch
-  }
-
-  const rescoredCandidates = await Promise.all(
-    rawFallbackCandidates.map(async (candidate, index) => {
-      const alternativeTitles = await getAlternativeTitles(candidate, token, proxyUrl)
-      const translatedTitles = await getTranslatedTitles(candidate, token, proxyUrl)
-      const metadataScore = scoreMetadataQuality(candidate)
-      const baseScore = scoreCandidate(title, year, candidate) + metadataScore
-      const alternativeMatch = scoreAlternativeTitles(title, year, candidate, [
-        ...alternativeTitles,
-        ...translatedTitles
-      ])
-      return {
-        candidate,
-        alternativeExact: alternativeMatch.exact,
-        score: Math.max(baseScore, alternativeMatch.score + metadataScore) + getSearchRankBonus(index)
-      }
-    })
-  )
-
-  const rescoredBest = rescoredCandidates.sort((a, b) => b.score - a.score)
-  const best = rescoredBest[0]
-  const second = rescoredBest[1]
-
-  if (!best) {
-    return secondMatch.status === 'exact' ? secondMatch : firstMatch
-  }
-
-  let status = resolveMatchStatus(best.score)
-  if (best.alternativeExact && (status === 'exact' || status === 'probable')) {
-    return { candidate: best.candidate, status, score: best.score }
-  }
-
-  if (second && best.score - second.score < getAmbiguityThreshold(best.score) && status !== 'not_found') {
-    status = 'ambiguous'
-  }
-
-  if (status === 'exact' || status === 'probable') {
-    return { candidate: best.candidate, status, score: best.score }
-  }
-
-  return secondMatch.status === 'exact' ? secondMatch : { candidate: null, status, score: best.score }
-}
-
-async function searchTmdb(title: string, year: number, uri: string, token: string, locale: string, proxyUrl?: string): Promise<MatchResult> {
-  const movieMatch = await searchMovie(title, year, uri, token, locale, proxyUrl)
-  const tvMatch = await searchTv(title, year, token, locale, proxyUrl)
-
-  if (!tvMatch.candidate) {
-    return movieMatch
-  }
-
-  if (!movieMatch.candidate) {
-    return tvMatch
-  }
-
-  const movieBias = 5
-  return tvMatch.score > movieMatch.score + movieBias ? tvMatch : movieMatch
 }
 
 async function getTitleDetails(candidate: TmdbSearchCandidate, token: string, locale: string, proxyUrl?: string): Promise<MovieDetails | null> {
-  if (candidate.mediaType === 'movie') {
-    const data = await tmdbFetch<TmdbMovieDetailsResponse>(
-      `${TMDB_BASE}/movie/${candidate.id}?append_to_response=credits&language=${locale}`,
-      token,
-      proxyUrl
-    )
-    if (!data) return null
-    const directors = data.credits?.crew?.filter(c => c.job === 'Director') || []
-    return {
-      title: data.title || null,
-      genres: data.genres?.map(g => g.name) || [],
-      poster: data.poster_path || null,
-      directors: directors.map(d => ({ name: d.name, photo: d.profile_path || null }))
-    }
-  }
-
-  const data = await tmdbFetch<TmdbTvDetailsResponse>(
-    `${TMDB_BASE}/tv/${candidate.id}?language=${locale}`,
+  const data = await tmdbFetch<TmdbMovieDetailsResponse>(
+    `${TMDB_BASE}/movie/${candidate.id}?append_to_response=credits&language=${locale}`,
     token,
     proxyUrl
   )
   if (!data) return null
+  const directors = data.credits?.crew?.filter(c => c.job === 'Director') || []
   return {
-    title: data.name || null,
+    title: data.title || null,
     genres: data.genres?.map(g => g.name) || [],
     poster: data.poster_path || null,
-    directors: (data.created_by ?? []).map(d => ({ name: d.name, photo: d.profile_path || null }))
+    directors: directors.map(d => ({ name: d.name, photo: d.profile_path || null }))
   }
 }
 
@@ -789,7 +677,7 @@ export async function debugMatchMovie(
     throw createError({ statusCode: 503, statusMessage: 'TMDB unavailable', message: 'Не удается загрузить данные из базы TMDB' })
   }
 
-  const searchResult = await searchTmdb(
+  const searchResult = await searchMovie(
     movie.title,
     movie.year,
     movie.uri,
@@ -984,7 +872,7 @@ export async function processCSVData(
       const batch = toFetch.slice(i, i + BATCH_SIZE)
 
       const searches = await Promise.all(
-        batch.map(m => searchTmdb(m.title, m.year, m.uri, tmdbToken, locale, shouldUseProxy ? proxyUrl : undefined))
+        batch.map(m => searchMovie(m.title, m.year, m.uri, tmdbToken, locale, shouldUseProxy ? proxyUrl : undefined))
       )
 
       const details = await Promise.all(
