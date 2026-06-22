@@ -11,7 +11,7 @@
     "loading_estimate": "Processing ~{count} movies... ~{seconds} sec remaining",
     "loading_finishing": "Processing will finish soon, please wait",
     "top_movies": "Top Movies by Rating",
-    "last_movies_watched": "Last Movies Watched (from favorite)",
+    "last_movies_watched": "Last Movies Watched",
     "upload_label": "Upload your Letterboxd export",
     "upload_description": ".zip file up to 2MB",
     "upload_error_size": "File must be under 2MB",
@@ -27,7 +27,7 @@
       "loading": "Preparing data...",
       "tabs": {
         "ratings": "By Ratings",
-        "last_watched": "Last Watched (favorite)"
+        "last_watched": "Last Watched"
       }
     },
     "directors": {
@@ -78,6 +78,6 @@
     "rating_share_by_year_released": "Rating Share By Year Released",
     "all_movies_count_by_year_watched": "All Movies Count By Year Watched",
     "top_movies_by_rating": "Top Movies by Rating",
-    "last_watched": "Last Watched (favorite)"
+    "last_watched": "Last Watched"
   }
 }
