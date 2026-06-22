@@ -33,6 +33,18 @@ interface TmdbAlternativeTitlesResponse {
   titles?: TmdbAlternativeTitle[]
 }
 
+interface TmdbTranslationData {
+  title?: string | null
+}
+
+interface TmdbTranslation {
+  data?: TmdbTranslationData | null
+}
+
+interface TmdbTranslationsResponse {
+  translations?: TmdbTranslation[]
+}
+
 interface TmdbGenre {
   name: string
 }
@@ -88,7 +100,7 @@ interface CachePaths {
 
 const IS_DEV = import.meta.dev
 const TMDB_TIMEOUT_MS = 5000
-const MATCH_VERSION = 4
+const MATCH_VERSION = 5
 const proxyAgents = new Map<string, ProxyAgent>()
 
 interface TmdbRequestOptions {
@@ -268,7 +280,7 @@ function scoreCandidate(inputTitle: string, inputYear: number, candidate: TmdbMo
   if (titleNorm === inputNorm) {
     score += 100
   } else if (originalNorm && originalNorm === inputNorm) {
-    score += 95
+    score += 100
   } else if (titleNorm.startsWith(inputNorm) || inputNorm.startsWith(titleNorm)) {
     score += 70
   } else {
@@ -353,6 +365,18 @@ function resolveMatchStatus(score: number): MatchStatus {
   return 'not_found'
 }
 
+function getAmbiguityThreshold(score: number): number {
+  if (score >= 130) {
+    return 5
+  }
+
+  if (score >= 100) {
+    return 8
+  }
+
+  return 15
+}
+
 function rankCandidates(inputTitle: string, inputYear: number, results: TmdbMovieSearchResult[]) {
   return results
     .map(candidate => ({
@@ -373,7 +397,7 @@ function pickBestCandidate(inputTitle: string, inputYear: number, results: TmdbM
   const second = ranked[1]
 
   let status = resolveMatchStatus(best.score)
-  if (second && best.score - second.score < 15 && status !== 'not_found') {
+  if (second && best.score - second.score < getAmbiguityThreshold(best.score) && status !== 'not_found') {
     status = 'ambiguous'
   }
 
@@ -394,6 +418,34 @@ async function getAlternativeTitles(tmdbId: number, token: string, proxyUrl?: st
   return data?.titles
     ?.map(title => title.title?.trim() ?? '')
     .filter(Boolean) ?? []
+}
+
+async function getTranslatedTitles(tmdbId: number, token: string, proxyUrl?: string): Promise<string[]> {
+  const data = await tmdbFetch<TmdbTranslationsResponse>(
+    `${TMDB_BASE}/movie/${tmdbId}/translations`,
+    token,
+    proxyUrl
+  )
+
+  return data?.translations
+    ?.map(translation => translation.data?.title?.trim() ?? '')
+    .filter(Boolean) ?? []
+}
+
+function getSearchRankBonus(index: number): number {
+  if (index === 0) {
+    return 15
+  }
+
+  if (index === 1) {
+    return 10
+  }
+
+  if (index === 2) {
+    return 5
+  }
+
+  return 0
 }
 
 async function searchMovie(title: string, year: number, _uri: string, token: string, locale: string, proxyUrl?: string): Promise<MatchResult> {
@@ -427,14 +479,18 @@ async function searchMovie(title: string, year: number, _uri: string, token: str
   }
 
   const rescoredCandidates = await Promise.all(
-    rawFallbackCandidates.map(async (candidate) => {
+    rawFallbackCandidates.map(async (candidate, index) => {
       const alternativeTitles = await getAlternativeTitles(candidate.id, token, proxyUrl)
+      const translatedTitles = await getTranslatedTitles(candidate.id, token, proxyUrl)
       const baseScore = scoreCandidate(title, year, candidate)
-      const alternativeMatch = scoreAlternativeTitles(title, year, candidate, alternativeTitles)
+      const alternativeMatch = scoreAlternativeTitles(title, year, candidate, [
+        ...alternativeTitles,
+        ...translatedTitles
+      ])
       return {
         candidate,
         alternativeExact: alternativeMatch.exact,
-        score: Math.max(baseScore, alternativeMatch.score)
+        score: Math.max(baseScore, alternativeMatch.score) + getSearchRankBonus(index)
       }
     })
   )
@@ -452,7 +508,7 @@ async function searchMovie(title: string, year: number, _uri: string, token: str
     return { candidate: best.candidate, status, score: best.score }
   }
 
-  if (second && best.score - second.score < 15 && status !== 'not_found') {
+  if (second && best.score - second.score < getAmbiguityThreshold(best.score) && status !== 'not_found') {
     status = 'ambiguous'
   }
 
