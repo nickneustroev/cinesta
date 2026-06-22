@@ -9,6 +9,7 @@ import type { ImportData } from '~/types/import'
 const TMDB_BASE = 'https://api.themoviedb.org/3'
 const RATE_LIMIT = 30
 const BATCH_SIZE = 10
+const ALT_FALLBACK_LIMIT = 10
 
 let lastRequest = 0
 
@@ -22,6 +23,14 @@ interface TmdbMovieSearchResult {
 
 interface TmdbSearchResponse {
   results?: TmdbMovieSearchResult[]
+}
+
+interface TmdbAlternativeTitle {
+  title?: string
+}
+
+interface TmdbAlternativeTitlesResponse {
+  titles?: TmdbAlternativeTitle[]
 }
 
 interface TmdbGenre {
@@ -61,6 +70,11 @@ interface MatchResult {
   score: number
 }
 
+interface AlternativeTitleMatch {
+  exact: boolean
+  score: number
+}
+
 type CachedMovie = Omit<ImportData['enriched'][number], 'dateRated' | 'userRating'> & {
   matchStatus?: MatchStatus
   matchScore?: number
@@ -74,7 +88,7 @@ interface CachePaths {
 
 const IS_DEV = import.meta.dev
 const TMDB_TIMEOUT_MS = 5000
-const MATCH_VERSION = 2
+const MATCH_VERSION = 4
 const proxyAgents = new Map<string, ProxyAgent>()
 
 interface TmdbRequestOptions {
@@ -299,6 +313,33 @@ function scoreCandidate(inputTitle: string, inputYear: number, candidate: TmdbMo
   return score
 }
 
+function scoreAlternativeTitles(inputTitle: string, inputYear: number, candidate: TmdbMovieSearchResult, alternativeTitles: string[]): AlternativeTitleMatch {
+  let bestScore = Number.NEGATIVE_INFINITY
+  let exact = false
+
+  for (const alternativeTitle of alternativeTitles) {
+    if (!alternativeTitle.trim()) {
+      continue
+    }
+
+    const alternativeCandidate: TmdbMovieSearchResult = {
+      ...candidate,
+      title: alternativeTitle,
+      original_title: alternativeTitle
+    }
+    const score = scoreCandidate(inputTitle, inputYear, alternativeCandidate)
+    if (score > bestScore) {
+      bestScore = score
+      exact = normalizeTitle(alternativeTitle) === normalizeTitle(inputTitle)
+    }
+  }
+
+  return {
+    exact,
+    score: Number.isFinite(bestScore) ? bestScore : Number.NEGATIVE_INFINITY
+  }
+}
+
 function resolveMatchStatus(score: number): MatchStatus {
   if (score >= 130) {
     return 'exact'
@@ -312,17 +353,21 @@ function resolveMatchStatus(score: number): MatchStatus {
   return 'not_found'
 }
 
-function pickBestCandidate(inputTitle: string, inputYear: number, results: TmdbMovieSearchResult[]): MatchResult {
-  if (results.length === 0) {
-    return { candidate: null, status: 'not_found', score: 0 }
-  }
-
-  const ranked = results
+function rankCandidates(inputTitle: string, inputYear: number, results: TmdbMovieSearchResult[]) {
+  return results
     .map(candidate => ({
       candidate,
       score: scoreCandidate(inputTitle, inputYear, candidate)
     }))
     .sort((a, b) => b.score - a.score)
+}
+
+function pickBestCandidate(inputTitle: string, inputYear: number, results: TmdbMovieSearchResult[]): MatchResult {
+  if (results.length === 0) {
+    return { candidate: null, status: 'not_found', score: 0 }
+  }
+
+  const ranked = rankCandidates(inputTitle, inputYear, results)
 
   const best = ranked[0]!
   const second = ranked[1]
@@ -339,7 +384,19 @@ function pickBestCandidate(inputTitle: string, inputYear: number, results: TmdbM
   return { candidate: best.candidate, status, score: best.score }
 }
 
-async function searchMovie(title: string, year: number, token: string, locale: string, proxyUrl?: string): Promise<MatchResult> {
+async function getAlternativeTitles(tmdbId: number, token: string, proxyUrl?: string): Promise<string[]> {
+  const data = await tmdbFetch<TmdbAlternativeTitlesResponse>(
+    `${TMDB_BASE}/movie/${tmdbId}/alternative_titles`,
+    token,
+    proxyUrl
+  )
+
+  return data?.titles
+    ?.map(title => title.title?.trim() ?? '')
+    .filter(Boolean) ?? []
+}
+
+async function searchMovie(title: string, year: number, _uri: string, token: string, locale: string, proxyUrl?: string): Promise<MatchResult> {
   const yearScoped = await tmdbFetch<TmdbSearchResponse>(
     `${TMDB_BASE}/search/movie?query=${encodeURIComponent(title)}&year=${year}&language=${locale}`,
     token,
@@ -355,7 +412,55 @@ async function searchMovie(title: string, year: number, token: string, locale: s
     token,
     proxyUrl
   )
-  return pickBestCandidate(title, year, titleOnly?.results ?? [])
+  const titleOnlyResults = titleOnly?.results ?? []
+  const secondMatch = pickBestCandidate(title, year, titleOnlyResults)
+
+  const mergedCandidates = [
+    ...(yearScoped?.results ?? []),
+    ...titleOnlyResults
+  ]
+  const dedupedCandidates = [...new Map(mergedCandidates.map(candidate => [candidate.id, candidate])).values()]
+  const rawFallbackCandidates = dedupedCandidates.slice(0, ALT_FALLBACK_LIMIT)
+
+  if (rawFallbackCandidates.length === 0) {
+    return secondMatch.status === 'exact' ? secondMatch : firstMatch
+  }
+
+  const rescoredCandidates = await Promise.all(
+    rawFallbackCandidates.map(async (candidate) => {
+      const alternativeTitles = await getAlternativeTitles(candidate.id, token, proxyUrl)
+      const baseScore = scoreCandidate(title, year, candidate)
+      const alternativeMatch = scoreAlternativeTitles(title, year, candidate, alternativeTitles)
+      return {
+        candidate,
+        alternativeExact: alternativeMatch.exact,
+        score: Math.max(baseScore, alternativeMatch.score)
+      }
+    })
+  )
+
+  const rescoredBest = rescoredCandidates.sort((a, b) => b.score - a.score)
+  const best = rescoredBest[0]
+  const second = rescoredBest[1]
+
+  if (!best) {
+    return secondMatch.status === 'exact' ? secondMatch : firstMatch
+  }
+
+  let status = resolveMatchStatus(best.score)
+  if (best.alternativeExact && (status === 'exact' || status === 'probable')) {
+    return { candidate: best.candidate, status, score: best.score }
+  }
+
+  if (second && best.score - second.score < 15 && status !== 'not_found') {
+    status = 'ambiguous'
+  }
+
+  if (status === 'exact' || status === 'probable') {
+    return { candidate: best.candidate, status, score: best.score }
+  }
+
+  return secondMatch.status === 'exact' ? secondMatch : { candidate: null, status, score: best.score }
 }
 
 async function getMovieDetails(tmdbId: number, token: string, locale: string, proxyUrl?: string): Promise<MovieDetails | null> {
@@ -506,7 +611,7 @@ export async function processCSVData(
       const batch = toFetch.slice(i, i + BATCH_SIZE)
 
       const searches = await Promise.all(
-        batch.map(m => searchMovie(m.title, m.year, tmdbToken, locale, shouldUseProxy ? proxyUrl : undefined))
+        batch.map(m => searchMovie(m.title, m.year, m.uri, tmdbToken, locale, shouldUseProxy ? proxyUrl : undefined))
       )
 
       const details = await Promise.all(
