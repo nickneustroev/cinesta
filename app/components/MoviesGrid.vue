@@ -15,15 +15,21 @@ const props = defineProps<{
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 
 const visibleCount = ref(props.limit ?? 8)
+const allLabel = computed(() => t('movies_grid.all'))
 
 const years = computed(() => {
   const set = new Set(props.data.map(m => m.year))
-  return ['All', ...[...set].sort((a, b) => b - a)]
+  return [allLabel.value, ...[...set].sort((a, b) => b - a).map(year => String(year))]
 })
 
-const selectedYear = ref<string>((route.query.year as string) || 'All')
+const selectedYear = ref<string>(
+  typeof route.query.year === 'string' && route.query.year !== 'All'
+    ? route.query.year
+    : allLabel.value
+)
 
 const watchedYears = computed(() => {
   const set = new Set(
@@ -32,22 +38,30 @@ const watchedYears = computed(() => {
       .filter((y): y is string => !!y)
   )
   const sorted = [...set].sort((a, b) => Number(b) - Number(a))
-  return ['All', ...sorted]
+  return [allLabel.value, ...sorted]
 })
 
-const selectedWatchedYear = ref<string>((route.query.watchedYear as string) || 'All')
+const selectedWatchedYear = ref<string>(
+  typeof route.query.watchedYear === 'string' && route.query.watchedYear !== 'All'
+    ? route.query.watchedYear
+    : allLabel.value
+)
 
 const earliestWatchedYear = computed(() => {
-  const years = watchedYears.value.filter(y => y !== 'All')
+  const years = watchedYears.value.filter(year => year !== allLabel.value)
   return years[years.length - 1] ?? null
 })
 
 const genres = computed(() => {
   const set = new Set(props.data.flatMap(m => m.genres))
-  return ['All', ...[...set].sort()]
+  return [allLabel.value, ...[...set].sort()]
 })
 
-const selectedGenre = ref<string>((route.query.genre as string) || 'All')
+const selectedGenre = ref<string>(
+  typeof route.query.genre === 'string' && route.query.genre !== 'All'
+    ? route.query.genre
+    : allLabel.value
+)
 
 const sortedList = computed(() => {
   if (props.preSorted) {
@@ -75,16 +89,16 @@ const sortedList = computed(() => {
 
 const filteredList = computed(() => {
   let list = sortedList.value
-  if (selectedYear.value !== 'All') {
+  if (selectedYear.value !== allLabel.value) {
     list = list.filter(m => m.year === Number(selectedYear.value))
   }
-  if (selectedWatchedYear.value !== 'All') {
+  if (selectedWatchedYear.value !== allLabel.value) {
     list = list.filter(m => m.dateRated?.startsWith(selectedWatchedYear.value))
   }
-  if (selectedWatchedYear.value === earliestWatchedYear.value && selectedWatchedYear.value !== 'All') {
+  if (selectedWatchedYear.value === earliestWatchedYear.value && selectedWatchedYear.value !== allLabel.value) {
     list = list.filter(m => m.dateRated !== props.importDate)
   }
-  if (selectedGenre.value !== 'All') {
+  if (selectedGenre.value !== allLabel.value) {
     list = list.filter(m => m.genres.includes(selectedGenre.value))
   }
   return list
@@ -98,9 +112,22 @@ function showMoreCards() {
   visibleCount.value += props.showMore!
 }
 
+watch(allLabel, (nextLabel, prevLabel) => {
+  if (selectedYear.value === prevLabel) selectedYear.value = nextLabel
+  if (selectedWatchedYear.value === prevLabel) selectedWatchedYear.value = nextLabel
+  if (selectedGenre.value === prevLabel) selectedGenre.value = nextLabel
+})
+
 watch([selectedYear, selectedWatchedYear, selectedGenre], () => {
   visibleCount.value = props.limit ?? 8
-  router.replace({ query: { ...route.query, year: selectedYear.value === 'All' ? undefined : selectedYear.value, watchedYear: selectedWatchedYear.value === 'All' ? undefined : selectedWatchedYear.value, genre: selectedGenre.value === 'All' ? undefined : selectedGenre.value } })
+  router.replace({
+    query: {
+      ...route.query,
+      year: selectedYear.value === allLabel.value ? undefined : selectedYear.value,
+      watchedYear: selectedWatchedYear.value === allLabel.value ? undefined : selectedWatchedYear.value,
+      genre: selectedGenre.value === allLabel.value ? undefined : selectedGenre.value
+    }
+  })
 })
 </script>
 
