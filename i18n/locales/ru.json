@@ -76,7 +76,7 @@
     "genre_share_by_year_watched": "Доля жанров по году просмотра (из избранного)",
     "rating_stacked_by_year_released": "Рейтинг по годам выпуска",
     "rating_share_by_year_released": "Доля рейтинга по годам выпуска",
-    "all_movies_count_by_month_watched": "Все фильмы — количество по месяцам просмотра",
+    "all_movies_count_by_year_watched": "Все фильмы — количество по годам просмотра",
     "top_movies_by_rating": "Топ фильмов по рейтингу",
     "last_watched": "Последние просмотренные (избранное)"
   }

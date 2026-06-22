@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { WatchedEntry } from '~/types/import'
-import type { MonthWatchedDatum } from '~/utils/home-analytics'
+import type { YearWatchedDatum } from '~/utils/home-analytics'
 
 defineOptions({
   tags: ['barcharts', 'vertical']
@@ -8,49 +8,34 @@ defineOptions({
 
 const props = withDefaults(defineProps<{
   data?: WatchedEntry[]
-  items?: MonthWatchedDatum[]
+  items?: YearWatchedDatum[]
   showTitle?: boolean
 }>(), {
   data: () => []
 })
 
-const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-
-interface YearMonthEntry {
+interface YearEntry {
   label: string
   count: number
 }
 
-const earliestDate = computed(() => {
-  if (!props.data.length) return ''
-  let min = props.data[0]!.date
-  for (const entry of props.data) {
-    if (entry.date < min) min = entry.date
-  }
-  return min
-})
-
 const chartData = computed(() => {
   if (props.items) return props.items
   if (!props.data.length) return []
-  const skipDate = earliestDate.value
 
   const map = new Map<string, number>()
 
   for (const entry of props.data) {
-    if (entry.date === skipDate) continue
-    const key = entry.date.slice(0, 7)
+    const key = entry.date.slice(0, 4)
     map.set(key, (map.get(key) ?? 0) + 1)
   }
 
   const sorted = [...map.entries()].sort(([a], [b]) => a.localeCompare(b))
 
-  const result: YearMonthEntry[] = []
+  const result: YearEntry[] = []
 
-  for (const [key, count] of sorted) {
-    const [year, monthNum] = key.split('-')
-    const monthName = shortMonths[Number.parseInt(monthNum!, 10) - 1]
-    result.push({ label: `${year}\n${monthName ?? ''}`, count })
+  for (const [label, count] of sorted) {
+    result.push({ label, count })
   }
 
   return result
@@ -67,7 +52,7 @@ const xFormatter = (i: number): string => chartData.value[i]?.label ?? ''
 const yFormatter = (tick: number) => tick.toString()
 
 const chartOptions = {
-  xAxis: 'label' as keyof YearMonthEntry,
+  xAxis: 'label' as keyof YearEntry,
   groupPadding: 0,
   barPadding: 0.2
 }
@@ -75,7 +60,7 @@ const chartOptions = {
 
 <template>
   <ChartsChartWrapper
-    :title="$t('charts.all_movies_count_by_month_watched')"
+    :title="$t('charts.all_movies_count_by_year_watched')"
     :show-title="showTitle"
   >
     <BarChart

@@ -8,8 +8,6 @@ const GENRE_COLORS = [
   '#7c3aed', '#4d7c0f', '#0f766e', '#e11d48', '#0369a1'
 ]
 
-const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-
 export interface DirectorMovieSummary {
   title: string
   year: number
@@ -50,7 +48,7 @@ export interface RatingCountDatum {
   count: number
 }
 
-export interface MonthWatchedDatum {
+export interface YearWatchedDatum {
   label: string
   count: number
 }
@@ -84,7 +82,7 @@ export interface HomeAnalytics {
     ratingShareByYears: PercentByYearDatum[]
     ratingCategories: ChartCategories
     watchedAllByRating: RatingCountDatum[]
-    allMoviesCountByMonthWatched: MonthWatchedDatum[]
+    allMoviesCountByYearWatched: YearWatchedDatum[]
     directorsCount: DirectorCountDatum[]
     directorsPoints: DirectorPointsDatum[]
     directorsAvgRating: DirectorAvgRatingDatum[]
@@ -315,7 +313,7 @@ function buildChartAnalytics(data: EnrichedImportData, directorMap: Map<string, 
     ratingShareByYears: buildRatingShareByYears(ratedMovies),
     ratingCategories: buildRatingCategories(),
     watchedAllByRating: buildWatchedAllByRating(ratedMovies),
-    allMoviesCountByMonthWatched: buildAllMoviesCountByMonthWatched(data.watches),
+    allMoviesCountByYearWatched: buildAllMoviesCountByYearWatched(data.watches),
     directorsCount: buildDirectorsCountChart(directorMap),
     directorsPoints: buildDirectorsPointsChart(directorMap),
     directorsAvgRating: buildDirectorsAvgRatingChart(directorMap),
@@ -501,34 +499,20 @@ function buildWatchedAllByRating(movies: EnrichedMovie[]) {
   return result
 }
 
-function buildAllMoviesCountByMonthWatched(watches: Watch[]) {
+function buildAllMoviesCountByYearWatched(watches: Watch[]) {
   const watched = watches.filter((watch): watch is Watch & { watchedDate: string } => !!watch.watchedDate)
   if (!watched.length) return []
-
-  let earliestDate = watched[0]!.watchedDate
-  for (const entry of watched) {
-    if (entry.watchedDate < earliestDate) earliestDate = entry.watchedDate
-  }
 
   const map = new Map<string, number>()
 
   for (const entry of watched) {
-    if (entry.watchedDate === earliestDate) continue
-    const key = entry.watchedDate.slice(0, 7)
+    const key = entry.watchedDate.slice(0, 4)
     map.set(key, (map.get(key) ?? 0) + 1)
   }
 
   return Array.from(map.entries())
     .sort(([left], [right]) => left.localeCompare(right))
-    .map(([key, count]) => {
-      const [year, monthNum] = key.split('-')
-      const monthName = SHORT_MONTHS[Number.parseInt(monthNum!, 10) - 1] ?? ''
-
-      return {
-        label: `${year}\n${monthName}`,
-        count
-      }
-    })
+    .map(([label, count]) => ({ label, count }))
 }
 
 function buildDirectorsCountChart(map: Map<string, DirectorAggregate>) {
