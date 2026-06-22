@@ -10,8 +10,8 @@
     "loading": "Идёт подготовка данных...",
     "loading_estimate": "Обработка ~{count} фильмов... Осталось примерно {seconds} сек",
     "loading_finishing": "Обработка скоро закончится, ожидайте",
-    "top_movies": "Топ фильмов по рейтингу",
-    "last_movies_watched": "Последние просмотренные (из избранного)",
+    "top_movies": "Топ фильмов по оценке",
+    "last_movies_watched": "Последнее просмотренное",
     "upload_label": "Загрузите экспорт Letterboxd",
     "upload_description": ".zip до 2MB",
     "upload_error_size": "Файл должен быть меньше 2MB",
@@ -26,8 +26,8 @@
     "movies": {
       "loading": "Идёт подготовка данных...",
       "tabs": {
-        "ratings": "По рейтингу",
-        "last_watched": "Последнее просмотренное (избранное)"
+        "ratings": "По оценкам",
+        "last_watched": "Последнее просмотренное"
       }
     },
     "directors": {
@@ -37,8 +37,8 @@
         "highest": "По наивысшей оценке"
       },
       "title": {
-        "points": "Топ режиссёров по баллам",
-        "highest": "Топ режиссёров по наивысшим оценкам"
+        "points": "Топ режиссёров по рейтингу",
+        "highest": "Топ режиссёров по наивысшей оценке"
       }
     }
   },
@@ -57,16 +57,16 @@
   "directors_grid": {
     "show_more": "Показать еще {count}",
     "view_all": "Смотреть всех",
-    "points_label": "Баллы",
+    "points_label": "Рейтинг",
     "highest_label": "Наивысшая оценка",
     "title": {
-      "points": "Топ режиссёров по баллам",
-      "highest": "Топ режиссёров по высшим оценкам"
+      "points": "Топ режиссёров по рейтингу",
+      "highest": "Топ режиссёров по наивысшей оценке"
     }
   },
   "charts": {
     "watched_this_year": "Просмотрено в этом году",
-    "watched_all_by_rating": "Все просмотры по рейтингу",
+    "watched_all_by_rating": "Все просмотры по оценкам",
     "top_30_directors_points": "Топ-30 режиссёров по баллам (из избранного)",
     "top_30_directors_avg_rating_min_2": "Топ-30 режиссёров по среднему рейтингу от 2 (из избранного)",
     "top_30_directors_avg_rating": "Топ-30 режиссёров по среднему рейтингу (из избранного)",
@@ -74,10 +74,10 @@
     "top_15_genres": "Топ-15 жанров (из избранного)",
     "genre_share_by_year_released": "Доля жанров по году выпуска (из избранного)",
     "genre_share_by_year_watched": "Доля жанров по году просмотра (из избранного)",
-    "rating_stacked_by_year_released": "Рейтинг по годам выпуска",
-    "rating_share_by_year_released": "Доля рейтинга по годам выпуска",
+    "rating_stacked_by_year_released": "Оценки по годам выпуска",
+    "rating_share_by_year_released": "Доля оценок по годам выпуска",
     "all_movies_count_by_year_watched": "Все фильмы — количество по годам просмотра",
-    "top_movies_by_rating": "Топ фильмов по рейтингу",
-    "last_watched": "Последние просмотренные (избранное)"
+    "top_movies_by_rating": "Топ фильмов по оценке",
+    "last_watched": "Последнее просмотренное"
   }
 }

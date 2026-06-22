@@ -225,11 +225,14 @@ async function onFileSelect(file: File | null | undefined) {
 
         <DirectorsGrid
           :cards-data="analytics?.directorsByPoints"
+          :title="$t('pages.directors.title.points')"
           :limit="8"
           link="/directors?tab=points"
         />
         <DirectorsGrid
           :cards-data="analytics?.directorsByHighest"
+          :title="$t('pages.directors.title.highest')"
+          sort-by="highestMovieRating"
           :limit="8"
           link="/directors?tab=highest"
         />
