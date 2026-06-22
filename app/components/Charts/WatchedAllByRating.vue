@@ -14,6 +14,8 @@ const props = withDefaults(defineProps<{
   data: () => []
 })
 
+const { t } = useI18n()
+
 const chartData = computed(() => {
   if (props.items) return props.items
   if (!props.data.length) return []
@@ -35,7 +37,7 @@ const chartData = computed(() => {
 
 const chartCategories = computed(() => ({
   count: {
-    name: 'Movies Rated',
+    name: t('charts.movies_count'),
     color: '#22c55e'
   }
 }))

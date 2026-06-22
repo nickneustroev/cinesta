@@ -80,6 +80,7 @@
     "all_movies_count_by_year_released": "All Movies Count By Year Released",
     "count_by_year_watched_option": "by year watched",
     "count_by_year_released_option": "by release year",
+    "movies_count": "Movie Count",
     "movies_watched": "Movies Watched",
     "starting_from": "starting from",
     "top_movies_by_rating": "Top Movies by Rating",

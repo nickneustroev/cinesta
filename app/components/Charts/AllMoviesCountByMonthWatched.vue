@@ -105,7 +105,7 @@ const chartData = computed(() => {
 
 const chartCategories = computed(() => ({
   count: {
-    name: t('charts.movies_watched'),
+    name: t('charts.movies_count'),
     color: '#22c55e'
   }
 }))

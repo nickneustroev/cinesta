@@ -80,6 +80,7 @@
     "all_movies_count_by_year_released": "Все фильмы — количество по годам выпуска",
     "count_by_year_watched_option": "по году просмотра",
     "count_by_year_released_option": "по году выхода",
+    "movies_count": "Кол-во фильмов",
     "movies_watched": "Фильмов просмотрено",
     "starting_from": "начиная с",
     "top_movies_by_rating": "Топ фильмов по оценке",
