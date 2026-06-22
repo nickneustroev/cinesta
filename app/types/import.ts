@@ -1,3 +1,84 @@
+export interface RatingEntryRaw {
+  date: string
+  title: string
+  year: number
+  movieUri: string | null
+  rating: number
+}
+
+export interface DiaryEntryRaw {
+  date: string
+  title: string
+  year: number
+  diaryUri: string | null
+  rating: number | null
+  rewatch: boolean | null
+  tags: string[]
+  watchedDate: string | null
+}
+
+export interface RawImportData {
+  ratings: RatingEntryRaw[]
+  diary: DiaryEntryRaw[]
+}
+
+export interface MovieDirector {
+  name: string
+  photo: string | null
+}
+
+export interface MovieBase {
+  id: string
+  movieUri: string | null
+  title: string
+  year: number
+}
+
+export interface WatchSources {
+  diary: boolean
+  watched: boolean
+  rating: boolean
+}
+
+export interface Watch {
+  id: string
+  movieId: string
+  movieUri: string | null
+  diaryUri: string | null
+  watchedDate: string | null
+  loggedDate: string | null
+  rating: number | null
+  rewatch: boolean | null
+  tags: string[]
+  sources: WatchSources
+}
+
+export interface ImportStats {
+  totalRatings: number
+  totalWatched: number
+  totalDiary: number
+  totalMovies: number
+  totalWatches: number
+  uniqueTitles: number
+  avgRating: number | null
+  importDate: string | null
+}
+
+export interface ImportData {
+  raw: RawImportData
+  movies: MovieBase[]
+  watches: Watch[]
+  stats: ImportStats
+}
+
+export interface Movie extends MovieBase {
+  tmdbId: number | null
+  genres: string[]
+  poster: string | null
+  directors: MovieDirector[]
+  matched: boolean
+}
+
 export interface RatingEntry {
   date: string
   title: string
@@ -33,21 +114,21 @@ export interface EnrichedMovie {
   tmdbId: number | null
   genres: string[]
   poster: string | null
-  directors: { name: string, photo: string | null }[]
+  directors: MovieDirector[]
   _matched: boolean
 }
 
-export interface ImportData {
+export interface LegacyImportData {
   enriched: EnrichedMovie[]
   ratings: RatingEntry[]
   watched: WatchedEntry[]
   diary: DiaryEntry[]
-  stats: {
-    totalRatings: number
-    totalWatched: number
-    totalDiary: number
-    uniqueTitles: number
-    avgRating: number | null
-    importDate: string | null
-  }
+}
+
+export interface EnrichedImportData {
+  raw: RawImportData
+  movies: Movie[]
+  watches: Watch[]
+  legacy: LegacyImportData
+  stats: ImportStats
 }

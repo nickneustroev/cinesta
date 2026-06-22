@@ -149,8 +149,8 @@ watch([selectedYear, selectedWatchedYear, selectedGenre], () => {
     </div>
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <MovieCard
-        v-for="movie in cards"
-        :key="movie.uri"
+        v-for="(movie, index) in cards"
+        :key="`${movie.uri}:${movie.dateRated ?? 'unknown'}:${index}`"
         :movie="movie"
         :import-date="importDate"
       />

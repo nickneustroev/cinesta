@@ -1,4 +1,4 @@
-import type { ImportData } from '~/types/import'
+import type { EnrichedImportData } from '~/types/import'
 import { get, set, del } from 'idb-keyval'
 
 const STORAGE_KEY = 'letterboxd-import'
@@ -17,12 +17,12 @@ function getErrorMessage(error: unknown, fallback: string) {
 
 export function useImportData() {
   const status = ref<'idle' | 'loading' | 'done' | 'error'>('idle')
-  const data = shallowRef<ImportData | null>(null)
+  const data = shallowRef<EnrichedImportData | null>(null)
   const error = ref<string | null>(null)
 
   async function load(): Promise<boolean> {
     try {
-      const cached = await get<ImportData>(STORAGE_KEY)
+      const cached = await get<EnrichedImportData>(STORAGE_KEY)
       if (cached) {
         data.value = cached
         status.value = 'done'
@@ -39,7 +39,7 @@ export function useImportData() {
     error.value = null
 
     try {
-      const result = await $fetch<ImportData>('/api/process', {
+      const result = await $fetch<EnrichedImportData>('/api/process', {
         method: 'POST',
         body: { minRating, tmdbRequired }
       })
@@ -65,7 +65,7 @@ export function useImportData() {
       const formData = new FormData()
       formData.append('file', file)
       formData.append('minRating', String(minRating))
-      const result = await $fetch<ImportData>('/api/upload', {
+      const result = await $fetch<EnrichedImportData>('/api/upload', {
         method: 'POST',
         body: formData
       })

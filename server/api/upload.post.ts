@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import type { ImportData } from '~/types/import'
+import type { EnrichedImportData } from '~/types/import'
 import AdmZip from 'adm-zip'
 
 const MAX_SIZE = 2 * 1024 * 1024
@@ -8,9 +8,9 @@ const CACHE_PATHS = {
   snapshotPath: join(process.cwd(), 'public', 'tmdb-cache.json')
 }
 
-const REQUIRED_FILES = ['diary.csv', 'ratings.csv', 'watched.csv']
+const REQUIRED_FILES = ['diary.csv', 'ratings.csv']
 
-export default defineEventHandler(async (event): Promise<ImportData> => {
+export default defineEventHandler(async (event): Promise<EnrichedImportData> => {
   const locale = getCookie(event, 'i18n_lang') || 'en-US'
   const formData = await readMultipartFormData(event)
   if (!formData || formData.length === 0) {
@@ -59,7 +59,7 @@ export default defineEventHandler(async (event): Promise<ImportData> => {
     {
       diary: csvFiles['diary.csv']!,
       ratings: csvFiles['ratings.csv']!,
-      watched: csvFiles['watched.csv']!
+      watched: ''
     },
     CACHE_PATHS,
     locale,

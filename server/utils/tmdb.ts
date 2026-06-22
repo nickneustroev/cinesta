@@ -4,7 +4,20 @@ import { dirname } from 'node:path'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { ProxyAgent, fetch as undiciFetch } from 'undici'
 import type { RequestInit as UndiciRequestInit, Response as UndiciResponse } from 'undici'
-import type { ImportData } from '~/types/import'
+import type {
+  DiaryEntry,
+  DiaryEntryRaw,
+  EnrichedImportData,
+  EnrichedMovie,
+  ImportData,
+  LegacyImportData,
+  Movie,
+  RawImportData,
+  RatingEntry,
+  RatingEntryRaw,
+  Watch,
+  WatchedEntry
+} from '~/types/import'
 
 const TMDB_BASE = 'https://api.themoviedb.org/3'
 const RATE_LIMIT = 30
@@ -104,7 +117,7 @@ interface AlternativeTitleMatch {
   score: number
 }
 
-type CachedMovie = Omit<ImportData['enriched'][number], 'dateRated' | 'userRating'> & {
+type CachedMovie = Omit<Movie, 'id' | 'movieUri' | 'matched'> & {
   matchStatus?: MatchStatus
   matchScore?: number
   matchVersion?: number
@@ -646,7 +659,7 @@ async function getTitleDetails(candidate: TmdbSearchCandidate, token: string, lo
 }
 
 export async function debugMatchMovie(
-  movie: Pick<ImportData['ratings'][number], 'title' | 'year' | 'uri'>,
+  movie: Pick<RatingEntry, 'title' | 'year' | 'uri'>,
   locale = 'en-US'
 ): Promise<CachedMovie> {
   const { tmdbToken, tmdbProxy } = useRuntimeConfig()
@@ -688,14 +701,14 @@ export async function debugMatchMovie(
 
   if (!searchResult.candidate || (searchResult.status !== 'exact' && searchResult.status !== 'probable')) {
     return {
-      uri: movie.uri,
       title: movie.title,
       year: movie.year,
       tmdbId: searchResult.candidate?.id ?? null,
       genres: [],
       poster: null,
       directors: [],
-      _matched: false,
+      matched: false,
+      movieUri: movie.uri,
       matchStatus: searchResult.status,
       matchScore: searchResult.score,
       matchVersion: MATCH_VERSION
@@ -711,14 +724,14 @@ export async function debugMatchMovie(
 
   if (!detail) {
     return {
-      uri: movie.uri,
       title: movie.title,
       year: movie.year,
       tmdbId: searchResult.candidate.id,
       genres: [],
       poster: null,
       directors: [],
-      _matched: false,
+      matched: false,
+      movieUri: movie.uri,
       matchStatus: searchResult.status,
       matchScore: searchResult.score,
       matchVersion: MATCH_VERSION
@@ -726,14 +739,14 @@ export async function debugMatchMovie(
   }
 
   return {
-    uri: movie.uri,
     title: detail.title ?? movie.title,
     year: movie.year,
     tmdbId: searchResult.candidate.id,
     genres: detail.genres,
     poster: detail.poster,
     directors: detail.directors,
-    _matched: true,
+    matched: true,
+    movieUri: movie.uri,
     matchStatus: searchResult.status,
     matchScore: searchResult.score,
     matchVersion: MATCH_VERSION
@@ -750,13 +763,289 @@ function isResolvedCacheEntry(entry?: CachedMovie): boolean {
     && entry.matchStatus !== 'ambiguous'
 }
 
+function toNullableString(value: string | undefined): string | null {
+  const trimmed = value?.trim()
+  return trimmed ? trimmed : null
+}
+
+function normalizeTitleKey(title: string): string {
+  return normalizeTitle(title)
+}
+
+function getFallbackMovieId(title: string, year: number) {
+  return `tmp:${normalizeTitleKey(title)}:${year}`
+}
+
+function getMovieIdForRawEntry(entry: { title: string, year: number, movieUri?: string | null }) {
+  return entry.movieUri ? `lb:movie:${entry.movieUri}` : getFallbackMovieId(entry.title, entry.year)
+}
+
+function parseRawImportData(csvFiles: { diary: string, ratings: string, watched: string }): RawImportData {
+  const rawDiary = csvToObjects(csvFiles.diary)
+  const rawRatings = csvToObjects(csvFiles.ratings)
+
+  return {
+    diary: rawDiary.map((entry): DiaryEntryRaw => ({
+      date: entry.Date || '',
+      title: entry.Name || '',
+      year: toNumber(entry.Year) ?? 0,
+      diaryUri: toNullableString(entry['Letterboxd URI']),
+      rating: toNumber(entry.Rating),
+      rewatch: entry.Rewatch ? entry.Rewatch === 'Yes' : null,
+      tags: entry.Tags ? entry.Tags.split(',').map(tag => tag.trim()).filter(Boolean) : [],
+      watchedDate: toNullableString(entry['Watched Date'])
+    })),
+    ratings: rawRatings.map((entry): RatingEntryRaw => ({
+      date: entry.Date || '',
+      title: entry.Name || '',
+      year: toNumber(entry.Year) ?? 0,
+      movieUri: toNullableString(entry['Letterboxd URI']),
+      rating: toNumber(entry.Rating) ?? 0
+    }))
+  }
+}
+
+function buildLegacyRawData(raw: RawImportData): Omit<LegacyImportData, 'enriched'> {
+  const ratings: RatingEntry[] = raw.ratings.map(entry => ({
+    date: entry.date,
+    title: entry.title,
+    year: entry.year,
+    uri: entry.movieUri ?? '',
+    rating: entry.rating
+  }))
+
+  const watched: WatchedEntry[] = raw.diary
+    .filter((entry): entry is DiaryEntryRaw & { watchedDate: string } => !!entry.watchedDate)
+    .map(entry => ({
+      date: entry.watchedDate,
+      title: entry.title,
+      year: entry.year,
+      uri: ''
+    }))
+
+  const diary: DiaryEntry[] = raw.diary.map(entry => ({
+    date: entry.date,
+    title: entry.title,
+    year: entry.year,
+    uri: entry.diaryUri ?? '',
+    rating: entry.rating,
+    rewatch: entry.rewatch,
+    tags: entry.tags,
+    watchedDate: entry.watchedDate ?? ''
+  }))
+
+  return { ratings, watched, diary }
+}
+
+function findExistingWatchForRating(
+  watches: Watch[],
+  movieId: string,
+  loggedDate: string
+) {
+  const byLoggedDate = watches.find(watch => watch.movieId === movieId && watch.loggedDate === loggedDate)
+  if (byLoggedDate) {
+    return byLoggedDate
+  }
+
+  const candidates = watches.filter(watch => watch.movieId === movieId && !watch.loggedDate)
+  return candidates.length === 1 ? candidates[0]! : null
+}
+
+function buildNormalizedImportData(raw: RawImportData): ImportData {
+  const moviesById = new Map<string, ImportData['movies'][number]>()
+  const moviesByFallbackKey = new Map<string, ImportData['movies'][number]>()
+  const watches: Watch[] = []
+
+  const ensureMovie = (entry: { title: string, year: number, movieUri?: string | null }) => {
+    const id = getMovieIdForRawEntry(entry)
+    const fallbackKey = getFallbackMovieId(entry.title, entry.year)
+    const existing = moviesById.get(id)
+
+    if (existing) {
+      if (!existing.movieUri && entry.movieUri) {
+        existing.movieUri = entry.movieUri
+      }
+      return existing
+    }
+
+    const fallbackMatch = moviesByFallbackKey.get(fallbackKey)
+    if (fallbackMatch) {
+      if (!fallbackMatch.movieUri && entry.movieUri) {
+        fallbackMatch.movieUri = entry.movieUri
+      }
+      if (!moviesById.has(id)) {
+        moviesById.set(id, fallbackMatch)
+      }
+      return fallbackMatch
+    }
+
+    const movie: ImportData['movies'][number] = {
+      id,
+      movieUri: entry.movieUri ?? null,
+      title: entry.title,
+      year: entry.year
+    }
+    moviesById.set(id, movie)
+    moviesByFallbackKey.set(fallbackKey, movie)
+    return movie
+  }
+
+  for (const entry of raw.ratings) {
+    ensureMovie(entry)
+  }
+
+  for (const entry of raw.diary) {
+    ensureMovie({ title: entry.title, year: entry.year })
+  }
+
+  raw.diary.forEach((entry, index) => {
+    const movie = ensureMovie({ title: entry.title, year: entry.year })
+    watches.push({
+      id: `watch:${movie.id}:${(entry.watchedDate ?? entry.date) || 'unknown'}:${index}`,
+      movieId: movie.id,
+      movieUri: movie.movieUri,
+      diaryUri: entry.diaryUri,
+      watchedDate: entry.watchedDate,
+      loggedDate: toNullableString(entry.date),
+      rating: entry.rating,
+      rewatch: entry.rewatch,
+      tags: entry.tags,
+      sources: {
+        diary: true,
+        watched: false,
+        rating: entry.rating !== null
+      }
+    })
+  })
+
+  raw.ratings.forEach((entry) => {
+    const movie = ensureMovie(entry)
+    const existing = findExistingWatchForRating(watches, movie.id, entry.date)
+
+    if (!existing) {
+      return
+    }
+
+    if (existing.rating === null) {
+      existing.rating = entry.rating
+    }
+
+    if (!existing.loggedDate) {
+      existing.loggedDate = entry.date
+    }
+
+    if (!existing.movieUri && movie.movieUri) {
+      existing.movieUri = movie.movieUri
+    }
+
+    existing.sources.rating = true
+  })
+
+  for (const watch of watches) {
+    if (!watch.movieUri) {
+      watch.movieUri = moviesById.get(watch.movieId)?.movieUri ?? null
+    }
+  }
+
+  const allTitles = new Set<string>()
+  for (const entry of raw.ratings) if (entry.title) allTitles.add(entry.title)
+  for (const entry of raw.diary) if (entry.title) allTitles.add(entry.title)
+
+  const sum = raw.ratings.reduce((acc, entry) => acc + entry.rating, 0)
+  const avgRating = raw.ratings.length > 0 ? Math.round((sum / raw.ratings.length) * 100) / 100 : null
+  const allDates = [
+    ...raw.ratings.map(entry => entry.date),
+    ...raw.diary.map(entry => entry.date)
+  ].filter(Boolean).sort()
+  const importDate = allDates.length > 0 ? allDates[0]! : null
+
+  return {
+    raw,
+    movies: Array.from(new Set(moviesById.values())),
+    watches,
+    stats: {
+      totalRatings: raw.ratings.length,
+      totalWatched: raw.diary.filter(entry => !!entry.watchedDate).length,
+      totalDiary: raw.diary.length,
+      totalMovies: moviesById.size,
+      totalWatches: watches.length,
+      uniqueTitles: allTitles.size,
+      avgRating,
+      importDate
+    }
+  }
+}
+
+function buildLegacyEnrichedMovies(
+  movies: Movie[],
+  watches: Watch[]
+): EnrichedMovie[] {
+  const movieMap = new Map(movies.map(movie => [movie.id, movie] as const))
+  const ratedWatches = watches.filter(watch => watch.rating !== null)
+  const latestWatchByMovie = new Map<string, Watch>()
+
+  for (const watch of ratedWatches) {
+    const existing = latestWatchByMovie.get(watch.movieId)
+    if (!existing) {
+      latestWatchByMovie.set(watch.movieId, watch)
+      continue
+    }
+
+    const existingDate = existing.loggedDate ?? existing.watchedDate ?? ''
+    const candidateDate = watch.loggedDate ?? watch.watchedDate ?? ''
+    if (candidateDate > existingDate || (candidateDate === existingDate && watch.id > existing.id)) {
+      latestWatchByMovie.set(watch.movieId, watch)
+    }
+  }
+
+  return Array.from(latestWatchByMovie.entries())
+    .map(([movieId, watch]) => {
+      const movie = movieMap.get(movieId)
+      if (!movie || watch.rating === null) {
+        return null
+      }
+
+      return {
+        uri: movie.movieUri ?? '',
+        title: movie.title,
+        year: movie.year,
+        dateRated: watch.loggedDate ?? watch.watchedDate,
+        userRating: watch.rating,
+        tmdbId: movie.tmdbId,
+        genres: movie.genres,
+        poster: movie.poster,
+        directors: movie.directors,
+        _matched: movie.matched
+      } satisfies EnrichedMovie
+    })
+    .filter((movie): movie is EnrichedMovie => movie !== null)
+}
+
+function buildEnrichedImportData(
+  data: ImportData,
+  movies: Movie[]
+): EnrichedImportData {
+  const legacyBase = buildLegacyRawData(data.raw)
+
+  return {
+    raw: data.raw,
+    movies,
+    watches: data.watches,
+    legacy: {
+      ...legacyBase,
+      enriched: buildLegacyEnrichedMovies(movies, data.watches)
+    },
+    stats: data.stats
+  }
+}
+
 export async function processCSVData(
   csvFiles: { diary: string, ratings: string, watched: string },
   cachePaths: CachePaths,
   locale = 'en-US',
   minRating = 3,
   tmdbRequired = true
-): Promise<ImportData> {
+): Promise<EnrichedImportData> {
   const { tmdbToken, tmdbProxy } = useRuntimeConfig()
   console.log('[process] подготовка данных началась')
 
@@ -796,57 +1085,26 @@ export async function processCSVData(
     throw createError({ statusCode: 503, statusMessage: 'TMDB unavailable', message: 'Не удается загрузить данные из базы TMDB' })
   }
 
-  const rawDiary = csvToObjects(csvFiles.diary)
-  const rawRatings = csvToObjects(csvFiles.ratings)
-  const rawWatched = csvToObjects(csvFiles.watched)
+  const raw = parseRawImportData(csvFiles)
+  const baseData = buildNormalizedImportData(raw)
 
-  const diary: ImportData['diary'] = rawDiary.map(e => ({
-    date: e.Date || '',
-    title: e.Name || '',
-    year: toNumber(e.Year) ?? 0,
-    uri: e['Letterboxd URI'] || '',
-    rating: toNumber(e.Rating),
-    rewatch: e.Rewatch ? e.Rewatch === 'Yes' : null,
-    tags: e.Tags ? e.Tags.split(',').map(t => t.trim()).filter(Boolean) : [],
-    watchedDate: e['Watched Date'] || ''
-  }))
-
-  const ratings: ImportData['ratings'] = rawRatings.map(e => ({
-    date: e.Date || '',
-    title: e.Name || '',
-    year: toNumber(e.Year) ?? 0,
-    uri: e['Letterboxd URI'] || '',
-    rating: toNumber(e.Rating) ?? 0
-  }))
-
-  const watched: ImportData['watched'] = rawWatched.map(e => ({
-    date: e.Date || '',
-    title: e.Name || '',
-    year: toNumber(e.Year) ?? 0,
-    uri: e['Letterboxd URI'] || ''
-  }))
-
-  console.log(`[process] csv прочитаны в json: diary ${diary.length}, ratings ${ratings.length}, watched ${watched.length}`)
-
-  const allTitles = new Set<string>()
-  for (const entry of ratings) if (entry.title) allTitles.add(entry.title)
-  for (const entry of watched) if (entry.title) allTitles.add(entry.title)
-  for (const entry of diary) if (entry.title) allTitles.add(entry.title)
-
-  let avgRating: number | null = null
-  const sum = ratings.reduce((acc, entry) => acc + entry.rating, 0)
-  if (ratings.length > 0) avgRating = Math.round((sum / ratings.length) * 100) / 100
+  console.log(`[process] csv прочитаны в json: diary ${raw.diary.length}, ratings ${raw.ratings.length}`)
 
   console.log(`[process] требуется обогащение данных: для ratings с оценкой ≥ ${minRating}`)
 
   const cache = loadOrCreateCache(cachePaths)
 
-  const toEnrich = ratings.filter(m => m.rating !== null && m.rating >= minRating)
+  const enrichableMovieIds = new Set(
+    raw.ratings
+      .filter(entry => entry.rating >= minRating)
+      .map(entry => getMovieIdForRawEntry(entry))
+  )
+  const toEnrich = baseData.movies.filter(movie => enrichableMovieIds.has(movie.id) && movie.movieUri)
 
   let cachedCount = 0
   let fetchCount = 0
   for (const movie of toEnrich) {
-    if (isResolvedCacheEntry(cache[cacheKey(movie.uri, locale)])) {
+    if (movie.movieUri && isResolvedCacheEntry(cache[cacheKey(movie.movieUri, locale)])) {
       cachedCount++
     } else {
       fetchCount++
@@ -864,7 +1122,7 @@ export async function processCSVData(
   } else {
     console.log(`[process] обогащение данных: ${cachedCount} из кэша, ${fetchCount} через TMDB`)
 
-    const toFetch = toEnrich.filter(m => !isResolvedCacheEntry(cache[cacheKey(m.uri, locale)]))
+    const toFetch = toEnrich.filter(movie => movie.movieUri && !isResolvedCacheEntry(cache[cacheKey(movie.movieUri, locale)]))
     const batchDelay = Math.ceil((BATCH_SIZE * 2) / RATE_LIMIT * 1000)
 
     for (let i = 0; i < toFetch.length; i += BATCH_SIZE) {
@@ -872,7 +1130,7 @@ export async function processCSVData(
       const batch = toFetch.slice(i, i + BATCH_SIZE)
 
       const searches = await Promise.all(
-        batch.map(m => searchMovie(m.title, m.year, m.uri, tmdbToken, locale, shouldUseProxy ? proxyUrl : undefined))
+        batch.map(movie => searchMovie(movie.title, movie.year, movie.movieUri!, tmdbToken, locale, shouldUseProxy ? proxyUrl : undefined))
       )
 
       const details = await Promise.all(
@@ -889,16 +1147,18 @@ export async function processCSVData(
         const movie = batch[j]!
         const searchResult = searches[j]!
         const detail = details[j]!
-        const key = cacheKey(movie.uri, locale)
+        const key = cacheKey(movie.movieUri!, locale)
 
         if (!searchResult.candidate || !detail) {
           cache[key] = {
-            uri: movie.uri, title: movie.title, year: movie.year,
+            title: movie.title,
+            year: movie.year,
             tmdbId: searchResult.candidate?.id ?? null,
             genres: [],
             poster: null,
             directors: [],
-            _matched: false,
+            matched: false,
+            movieUri: movie.movieUri,
             matchStatus: searchResult.status,
             matchScore: searchResult.score,
             matchVersion: MATCH_VERSION
@@ -908,12 +1168,14 @@ export async function processCSVData(
         }
 
         cache[key] = {
-          uri: movie.uri, title: detail.title ?? movie.title, year: movie.year,
+          title: detail.title ?? movie.title,
+          year: movie.year,
           tmdbId: searchResult.candidate.id,
           genres: detail.genres,
           poster: detail.poster,
           directors: detail.directors,
-          _matched: true,
+          matched: true,
+          movieUri: movie.movieUri,
           matchStatus: searchResult.status,
           matchScore: searchResult.score,
           matchVersion: MATCH_VERSION
@@ -935,34 +1197,24 @@ export async function processCSVData(
     console.log(`[process] обогащение завершено: ${exactMatch} точных, ${fuzzyMatch} неточно, ${notFound} не найдено`)
   }
 
-  const enriched: ImportData['enriched'] = []
-  for (const movie of toEnrich) {
-    const cached = cache[cacheKey(movie.uri, locale)]
-    if (cached) {
-      enriched.push({ ...cached, dateRated: movie.date, userRating: movie.rating })
+  const enrichedMovies: Movie[] = baseData.movies.map((movie) => {
+    const cached = movie.movieUri ? cache[cacheKey(movie.movieUri, locale)] : undefined
+
+    return {
+      id: movie.id,
+      movieUri: movie.movieUri,
+      title: cached?.title ?? movie.title,
+      year: movie.year,
+      tmdbId: cached?.tmdbId ?? null,
+      genres: cached?.genres ?? [],
+      poster: cached?.poster ?? null,
+      directors: cached?.directors ?? [],
+      matched: cached?.matched ?? false
     }
-  }
+  })
 
   saveCache(cachePaths, cache)
 
-  const allDates = [...ratings.map(r => r.date), ...watched.map(w => w.date), ...diary.map(d => d.date)].filter(Boolean).sort() as string[]
-  const sorted = allDates.length > 0 ? allDates : []
-  const importDate = sorted.length > 0 ? sorted[0]! : null
-
   console.log('[process] данные готовы, передаем на фронтенд')
-
-  return {
-    ratings,
-    watched,
-    diary,
-    stats: {
-      totalRatings: ratings.length,
-      totalWatched: watched.length,
-      totalDiary: diary.length,
-      uniqueTitles: allTitles.size,
-      avgRating,
-      importDate
-    },
-    enriched
-  }
+  return buildEnrichedImportData(baseData, enrichedMovies)
 }

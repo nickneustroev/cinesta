@@ -1,5 +1,5 @@
 import { buildRatingCategories, ratingKeys, ratingLookup, type RatingEntry } from '~/utils/ratings'
-import type { EnrichedMovie, ImportData, WatchedEntry } from '~/types/import'
+import type { EnrichedImportData, EnrichedMovie, Movie, Watch, WatchedEntry } from '~/types/import'
 
 const GENRE_COLORS = [
   '#2563eb', '#dc2626', '#16a34a', '#ca8a04', '#9333ea',
@@ -98,15 +98,16 @@ interface HomeAnalyticsOptions {
   directorHighestLabel?: string
 }
 
-export function buildHomeAnalytics(data: ImportData, options: HomeAnalyticsOptions = {}): HomeAnalytics {
+export function buildHomeAnalytics(data: EnrichedImportData, options: HomeAnalyticsOptions = {}): HomeAnalytics {
   const {
     includeCharts = true,
     directorPointsLabel = 'Points',
     directorHighestLabel = 'Highest rated movie'
   } = options
-  const moviesByRating = sortMoviesByRating(data.enriched)
-  const moviesByDateRated = sortMoviesByDateRated(data.enriched, data.stats.importDate)
-  const directorMap = buildDirectorAggregateMap(data.enriched)
+  const ratedMovies = data.legacy.enriched
+  const moviesByRating = sortMoviesByRating(ratedMovies)
+  const moviesByDateRated = buildMoviesByWatchDate(data.movies, data.watches, data.stats.importDate)
+  const directorMap = buildDirectorAggregateMap(ratedMovies)
 
   return {
     moviesByRating,
@@ -121,6 +122,40 @@ export function formatDirectorPoints(points: number) {
   return (Math.round(points) / 10).toFixed(1)
 }
 
+function buildMoviesByWatchDate(movies: Movie[], watches: Watch[], importDate?: string | null) {
+  const movieMap = new Map(movies.map(movie => [movie.id, movie] as const))
+
+  return watches
+    .filter((watch): watch is Watch & { rating: number } => watch.rating !== null)
+    .map((watch) => {
+      const movie = movieMap.get(watch.movieId)
+      if (!movie) {
+        return null
+      }
+
+      const dateRated = watch.watchedDate ?? watch.loggedDate
+
+      return {
+        uri: movie.movieUri ?? `${movie.id}:${dateRated ?? 'unknown'}`,
+        title: movie.title,
+        year: movie.year,
+        dateRated,
+        userRating: watch.rating,
+        tmdbId: movie.tmdbId,
+        genres: movie.genres,
+        poster: movie.poster,
+        directors: movie.directors,
+        _matched: movie.matched
+      } satisfies EnrichedMovie
+    })
+    .filter((movie): movie is EnrichedMovie => movie !== null && !!movie.dateRated && movie.dateRated !== importDate)
+    .sort((a, b) => {
+      if (!a.dateRated) return 1
+      if (!b.dateRated) return -1
+      return b.dateRated.localeCompare(a.dateRated)
+    })
+}
+
 function sortMoviesByRating(movies: EnrichedMovie[]) {
   return [...movies].sort((a, b) => {
     const ratingDiff = b.userRating - a.userRating
@@ -129,16 +164,6 @@ function sortMoviesByRating(movies: EnrichedMovie[]) {
     if (!b.dateRated) return -1
     return b.dateRated.localeCompare(a.dateRated)
   })
-}
-
-function sortMoviesByDateRated(movies: EnrichedMovie[], importDate?: string | null) {
-  return movies
-    .filter(movie => movie.dateRated && movie.dateRated !== importDate)
-    .sort((a, b) => {
-      if (!a.dateRated) return 1
-      if (!b.dateRated) return -1
-      return b.dateRated.localeCompare(a.dateRated)
-    })
 }
 
 function buildDirectorAggregateMap(movies: EnrichedMovie[]) {
@@ -227,19 +252,20 @@ function buildGenreAnalytics(movies: EnrichedMovie[]) {
   }
 }
 
-function buildChartAnalytics(data: ImportData, directorMap: Map<string, DirectorAggregate>) {
-  const { genreCategories, favoritesByGenres, genreShareByYears, genreShareByWatchedYear } = buildGenreAnalytics(data.enriched)
+function buildChartAnalytics(data: EnrichedImportData, directorMap: Map<string, DirectorAggregate>) {
+  const ratedMovies = data.legacy.enriched
+  const { genreCategories, favoritesByGenres, genreShareByYears, genreShareByWatchedYear } = buildGenreAnalytics(ratedMovies)
 
   return {
     favoritesByGenres,
     genreShareByYears,
     genreShareByWatchedYear,
     genreCategories,
-    ratingStackedByYears: buildRatingStackedByYears(data.ratings),
-    ratingShareByYears: buildRatingShareByYears(data.ratings),
+    ratingStackedByYears: buildRatingStackedByYears(data.legacy.ratings),
+    ratingShareByYears: buildRatingShareByYears(data.legacy.ratings),
     ratingCategories: buildRatingCategories(),
-    watchedAllByRating: buildWatchedAllByRating(data.ratings),
-    allMoviesCountByMonthWatched: buildAllMoviesCountByMonthWatched(data.watched),
+    watchedAllByRating: buildWatchedAllByRating(data.legacy.ratings),
+    allMoviesCountByMonthWatched: buildAllMoviesCountByMonthWatched(data.legacy.watched),
     directorsCount: buildDirectorsCountChart(directorMap),
     directorsPoints: buildDirectorsPointsChart(directorMap),
     directorsAvgRating: buildDirectorsAvgRatingChart(directorMap),

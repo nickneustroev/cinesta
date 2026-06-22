@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 import { readFileSync } from 'node:fs'
-import type { ImportData } from '~/types/import'
+import type { EnrichedImportData } from '~/types/import'
 import AdmZip from 'adm-zip'
 
 const DEMO_ZIP_PATH = join(process.cwd(), 'public', 'demo.zip')
@@ -9,7 +9,7 @@ const CACHE_PATHS = {
   snapshotPath: join(process.cwd(), 'public', 'tmdb-cache.json')
 }
 
-export default defineEventHandler(async (event): Promise<ImportData> => {
+export default defineEventHandler(async (event): Promise<EnrichedImportData> => {
   const locale = getCookie(event, 'i18n_lang') || 'en-US'
   const body = await readBody<{ minRating?: number, tmdbRequired?: boolean }>(event)
   const minRating = body?.minRating || 3
@@ -27,7 +27,7 @@ export default defineEventHandler(async (event): Promise<ImportData> => {
     {
       diary: readZipCSV('diary.csv'),
       ratings: readZipCSV('ratings.csv'),
-      watched: readZipCSV('watched.csv')
+      watched: ''
     },
     CACHE_PATHS,
     locale,

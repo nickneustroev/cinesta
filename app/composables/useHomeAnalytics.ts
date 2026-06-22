@@ -1,12 +1,12 @@
 import type { Ref } from 'vue'
-import type { ImportData } from '~/types/import'
+import type { EnrichedImportData } from '~/types/import'
 import { buildHomeAnalytics } from '~/utils/home-analytics'
 
 interface UseHomeAnalyticsOptions {
   includeCharts?: boolean
 }
 
-export function useHomeAnalytics(data: Ref<ImportData | null>, options: UseHomeAnalyticsOptions = {}) {
+export function useHomeAnalytics(data: Ref<EnrichedImportData | null>, options: UseHomeAnalyticsOptions = {}) {
   const { t } = useI18n()
 
   return computed(() => data.value
