@@ -79,6 +79,7 @@ export interface HomeAnalytics {
     genreShareByWatchedYear: PercentByYearDatum[]
     genreCategories: ChartCategories
     ratingStackedByYears: CountByYearDatum[]
+    ratingStackedByWatchedYears: CountByYearDatum[]
     ratingShareByYears: PercentByYearDatum[]
     ratingCategories: ChartCategories
     watchedAllByRating: RatingCountDatum[]
@@ -336,6 +337,7 @@ function buildChartAnalytics(data: EnrichedImportData, directorMap: Map<string, 
     genreShareByWatchedYear,
     genreCategories,
     ratingStackedByYears: buildRatingStackedByYears(ratedMovies),
+    ratingStackedByWatchedYears: buildRatingStackedByWatchedYears(ratedMovies),
     ratingShareByYears: buildRatingShareByYears(ratedMovies),
     ratingCategories: buildRatingCategories(),
     watchedAllByRating: buildWatchedAllByRating(ratedMovies),
@@ -450,7 +452,26 @@ function buildPercentRows(yearMap: Map<number, Map<string, number>>, keys: strin
 }
 
 function buildRatingStackedByYears(movies: EnrichedMovie[]) {
-  const buckets = buildRatingYearBuckets(movies)
+  const buckets = buildRatingYearBuckets(movies, movie => movie.year)
+
+  return buckets.sortedYears.map((year) => {
+    const ratingMap = buckets.map.get(year)!
+    const item: CountByYearDatum = { year: String(year) }
+
+    for (let index = 0; index < ratingKeys.length; index++) {
+      item[ratingKeys[index]!] = ratingMap.get(ratingLookup[index]!) ?? 0
+    }
+
+    return item
+  })
+}
+
+function buildRatingStackedByWatchedYears(movies: EnrichedMovie[]) {
+  const buckets = buildRatingYearBuckets(movies, (movie) => {
+    if (!movie.dateRated) return null
+    const watchedYear = Number.parseInt(movie.dateRated.slice(0, 4), 10)
+    return Number.isNaN(watchedYear) ? null : watchedYear
+  })
 
   return buckets.sortedYears.map((year) => {
     const ratingMap = buckets.map.get(year)!
@@ -465,7 +486,7 @@ function buildRatingStackedByYears(movies: EnrichedMovie[]) {
 }
 
 function buildRatingShareByYears(movies: EnrichedMovie[]) {
-  const buckets = buildRatingYearBuckets(movies)
+  const buckets = buildRatingYearBuckets(movies, movie => movie.year)
 
   return buckets.sortedYears.map((year) => {
     const ratingMap = buckets.map.get(year)!
@@ -494,14 +515,15 @@ function buildRatingShareByYears(movies: EnrichedMovie[]) {
   })
 }
 
-function buildRatingYearBuckets(movies: EnrichedMovie[]) {
+function buildRatingYearBuckets(movies: EnrichedMovie[], getYear: (movie: EnrichedMovie) => number | null) {
   const map = new Map<number, Map<number, number>>()
 
   for (const movie of movies) {
-    if (movie.year < 1990) continue
-    const bucket = map.get(movie.year) ?? new Map<number, number>()
+    const year = getYear(movie)
+    if (year === null) continue
+    const bucket = map.get(year) ?? new Map<number, number>()
     bucket.set(movie.userRating, (bucket.get(movie.userRating) ?? 0) + 1)
-    map.set(movie.year, bucket)
+    map.set(year, bucket)
   }
 
   return {
