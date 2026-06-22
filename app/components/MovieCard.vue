@@ -7,7 +7,7 @@ const props = defineProps<{
   importDate?: string | null
 }>()
 
-const { t, locale } = useI18n()
+const { locale } = useI18n()
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return ''
@@ -16,6 +16,16 @@ function formatDate(dateStr: string | null): string {
   const month = date.toLocaleDateString(locale.value, { month: 'short' }).replace(/\.$/, '')
   return `${Number(d!)} ${month} ${y!}`
 }
+
+const watchedDates = computed(() => {
+  if (props.movie.watchedDates?.length) {
+    return props.movie.watchedDates
+  }
+
+  return props.movie.dateRated ? [props.movie.dateRated] : []
+})
+
+const formattedWatchedDates = computed(() => watchedDates.value.map(formatDate))
 </script>
 
 <template>
@@ -55,11 +65,23 @@ function formatDate(dateStr: string | null): string {
         {{ genre }}
       </UBadge>
     </div>
-    <p
-      v-if="movie.dateRated"
-      class="mt-3 text-sm text-muted"
+    <div
+      v-if="formattedWatchedDates.length"
+      class="mt-3 flex flex-wrap items-center gap-2"
     >
-      {{ movie.dateRated === props.importDate ? t('movie_card.watched_before') : t('movie_card.watched') }} {{ formatDate(movie.dateRated) }}
-    </p>
+      <UIcon
+        name="i-lucide-eye"
+        class="size-4 text-muted shrink-0"
+      />
+      <UBadge
+        v-for="watchedDate in formattedWatchedDates"
+        :key="watchedDate"
+        size="md"
+        color="secondary"
+        variant="subtle"
+      >
+        {{ watchedDate }}
+      </UBadge>
+    </div>
   </SimpleCard>
 </template>

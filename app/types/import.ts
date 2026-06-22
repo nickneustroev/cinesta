@@ -85,6 +85,7 @@ export interface EnrichedMovie {
   title: string
   year: number
   dateRated: string | null
+  watchedDates?: string[]
   userRating: number
   tmdbId: number | null
   genres: string[]

@@ -124,9 +124,31 @@ function getWatchSortDate(watch: Watch) {
   return watch.watchedDate ?? watch.loggedDate ?? ''
 }
 
+function buildWatchedDatesByMovie(watches: Watch[]) {
+  const watchedDatesByMovie = new Map<string, string[]>()
+
+  for (const watch of watches) {
+    const watchDate = getWatchSortDate(watch)
+    if (!watchDate) {
+      continue
+    }
+
+    const dates = watchedDatesByMovie.get(watch.movieId) ?? []
+    dates.push(watchDate)
+    watchedDatesByMovie.set(watch.movieId, dates)
+  }
+
+  for (const [movieId, dates] of watchedDatesByMovie.entries()) {
+    watchedDatesByMovie.set(movieId, [...dates].sort((a, b) => b.localeCompare(a)))
+  }
+
+  return watchedDatesByMovie
+}
+
 function buildRatedMovies(movies: Movie[], watches: Watch[]) {
   const movieMap = new Map(movies.map(movie => [movie.id, movie] as const))
   const latestWatchByMovie = new Map<string, Watch>()
+  const watchedDatesByMovie = buildWatchedDatesByMovie(watches)
 
   for (const watch of watches) {
     if (watch.rating === null) {
@@ -159,6 +181,7 @@ function buildRatedMovies(movies: Movie[], watches: Watch[]) {
         title: movie.title,
         year: movie.year,
         dateRated: watch.watchedDate ?? watch.loggedDate,
+        watchedDates: watchedDatesByMovie.get(movieId) ?? [],
         userRating: watch.rating,
         tmdbId: movie.tmdbId,
         genres: movie.genres,
@@ -172,6 +195,7 @@ function buildRatedMovies(movies: Movie[], watches: Watch[]) {
 
 function buildMoviesByWatchDate(movies: Movie[], watches: Watch[], importDate?: string | null) {
   const movieMap = new Map(movies.map(movie => [movie.id, movie] as const))
+  const watchedDatesByMovie = buildWatchedDatesByMovie(watches)
 
   return watches
     .filter((watch): watch is Watch & { rating: number } => watch.rating !== null)
@@ -188,6 +212,7 @@ function buildMoviesByWatchDate(movies: Movie[], watches: Watch[], importDate?: 
         title: movie.title,
         year: movie.year,
         dateRated,
+        watchedDates: watchedDatesByMovie.get(watch.movieId) ?? [],
         userRating: watch.rating,
         tmdbId: movie.tmdbId,
         genres: movie.genres,
