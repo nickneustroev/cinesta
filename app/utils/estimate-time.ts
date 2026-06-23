@@ -3,7 +3,7 @@ import JSZip from 'jszip'
 const MOVIES_PER_SECOND = 13
 const MIN_TIME_SECONDS = 10
 
-export async function estimateProcessingTime(file: File, minRating = 3): Promise<{ count: number, seconds: number } | null> {
+export async function estimateProcessingTime(file: File): Promise<{ count: number, seconds: number } | null> {
   try {
     const zip = await JSZip.loadAsync(file)
     const ratingsFile = zip.file('ratings.csv')
@@ -21,7 +21,7 @@ export async function estimateProcessingTime(file: File, minRating = 3): Promise
     for (let i = 1; i < lines.length; i++) {
       const cols = lines[i]!.split(',')
       const rating = Number(cols[ratingIdx]?.trim())
-      if (!Number.isNaN(rating) && rating >= minRating) count++
+      if (!Number.isNaN(rating)) count++
     }
 
     const seconds = Math.max(MIN_TIME_SECONDS, Math.round(count / MOVIES_PER_SECOND))

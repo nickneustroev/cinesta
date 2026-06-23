@@ -21,6 +21,9 @@
     "upload_error_format": "Только .zip файлы",
     "upload_again": "Загрузить данные снова",
     "start_import": "Начать импорт",
+    "estimate_ready": "Фильмов обнаружено: {count}. Ожидаемое время обработки: до {duration} Начать?",
+    "duration_minutes_short": "мин.",
+    "duration_seconds_short": "сек.",
     "upload_or_demo": "Или, если у вас нет своих данных, вы можете:",
     "import_success": "Импорт данных успешно завершён.",
     "import_error": "Ошибка импорта данных."

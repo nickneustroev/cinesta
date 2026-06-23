@@ -14,6 +14,14 @@ const initialLoading = ref(true)
 const DEFAULT_MIN_RATING = 3
 let countdownTimer: ReturnType<typeof setInterval> | null = null
 
+const estimateSummary = computed(() => {
+  if (!estimate.value) return null
+  return t('home.estimate_ready', {
+    count: estimate.value.count,
+    duration: formatEstimateDuration(estimate.value.seconds)
+  })
+})
+
 onMounted(async () => {
   await load()
   initialLoading.value = false
@@ -48,6 +56,21 @@ function startCountdown(seconds: number) {
       countdownTimer = null
     }
   }, 1000)
+}
+
+function formatEstimateDuration(seconds: number) {
+  const minutes = Math.floor(seconds / 60)
+  const restSeconds = seconds % 60
+
+  if (minutes <= 0) {
+    return `${restSeconds} ${t('home.duration_seconds_short')}`
+  }
+
+  if (restSeconds <= 0) {
+    return `${minutes} ${t('home.duration_minutes_short')}`
+  }
+
+  return `${minutes} ${t('home.duration_minutes_short')} ${restSeconds} ${t('home.duration_seconds_short')}`
 }
 
 function resetUpload() {
@@ -105,7 +128,7 @@ async function onFileSelect(file: File | null | undefined) {
   }
 
   uploadedFile.value = file
-  estimate.value = await estimateProcessingTime(file, DEFAULT_MIN_RATING)
+  estimate.value = await estimateProcessingTime(file)
 }
 
 async function startImport() {
@@ -171,6 +194,13 @@ async function startImport() {
         :ui="{ base: 'min-h-36' }"
         @update:model-value="onFileSelect"
       />
+
+      <p
+        v-if="(showUpload || status === 'idle') && status !== 'loading' && estimateSummary && uploadedFile && !uploadError"
+        class="max-w-md text-center text-sm text-muted"
+      >
+        {{ estimateSummary }}
+      </p>
 
       <UButton
         v-if="(showUpload || status === 'idle') && status !== 'loading' && uploadedFile && !uploadError"

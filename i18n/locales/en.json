@@ -21,6 +21,9 @@
     "upload_error_format": "Only .zip files are accepted",
     "upload_again": "Upload data again",
     "start_import": "Start import",
+    "estimate_ready": "Movies found: {count}. Estimated processing time: {duration} Start?",
+    "duration_minutes_short": "min.",
+    "duration_seconds_short": "sec.",
     "upload_or_demo": "Or, if you don't have your own data, you can:",
     "import_success": "Data import completed successfully.",
     "import_error": "Data import failed."
