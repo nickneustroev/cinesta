@@ -19,6 +19,7 @@ const { t } = useI18n()
 
 const visibleCount = ref(props.limit ?? 8)
 const allLabel = computed(() => t('movies_grid.all'))
+const filtersEnabled = computed(() => props.showYearFilter === true)
 
 function getMovieWatchedDates(movie: EnrichedMovie) {
   return movie.watchedDates?.length ? movie.watchedDates : (movie.dateRated ? [movie.dateRated] : [])
@@ -34,7 +35,7 @@ const years = computed(() => {
 })
 
 const selectedYear = ref<string>(
-  typeof route.query.year === 'string' && route.query.year !== 'All'
+  filtersEnabled.value && typeof route.query.year === 'string' && route.query.year !== 'All'
     ? route.query.year
     : allLabel.value
 )
@@ -50,7 +51,7 @@ const watchedYears = computed(() => {
 })
 
 const selectedWatchedYear = ref<string>(
-  typeof route.query.watchedYear === 'string' && route.query.watchedYear !== 'All'
+  filtersEnabled.value && typeof route.query.watchedYear === 'string' && route.query.watchedYear !== 'All'
     ? route.query.watchedYear
     : allLabel.value
 )
@@ -66,7 +67,7 @@ const genres = computed(() => {
 })
 
 const selectedGenre = ref<string>(
-  typeof route.query.genre === 'string' && route.query.genre !== 'All'
+  filtersEnabled.value && typeof route.query.genre === 'string' && route.query.genre !== 'All'
     ? route.query.genre
     : allLabel.value
 )
@@ -97,6 +98,9 @@ const sortedList = computed(() => {
 
 const filteredList = computed(() => {
   let list = sortedList.value
+  if (!filtersEnabled.value) {
+    return list
+  }
   if (selectedYear.value !== allLabel.value) {
     list = list.filter(m => m.year === Number(selectedYear.value))
   }
@@ -128,6 +132,9 @@ watch(allLabel, (nextLabel, prevLabel) => {
 
 watch([selectedYear, selectedWatchedYear, selectedGenre], () => {
   visibleCount.value = props.limit ?? 8
+  if (!filtersEnabled.value) {
+    return
+  }
   router.replace({
     query: {
       ...route.query,
