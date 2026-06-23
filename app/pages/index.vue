@@ -308,7 +308,7 @@ async function startImport() {
             :items="chartAnalytics.ratingShareByYears"
             :watched-items="chartAnalytics.ratingShareByWatchedYears"
           />
-          <ChartsFavoritesByGenres :items="chartAnalytics.favoritesByGenres" />
+          <ChartsFavoritesByGenres :data="analytics?.moviesByRating || []" />
           <ChartsGenreShareByYears
             :items="chartAnalytics.genreShareByYears"
             :categories-data="chartAnalytics.genreCategories"
