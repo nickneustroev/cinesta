@@ -150,12 +150,12 @@ async function startImport() {
 <template>
   <UContainer
     class="bg-muted border-x border-accented pb-12"
-    :class="!data && status === 'idle' ? 'flex flex-col min-h-[calc(100dvh-var(--ui-header-height,64px))]' : ''"
+    :class="!data ? 'flex min-h-[calc(100dvh-var(--ui-header-height,64px))] flex-col' : ''"
   >
     <div
       v-if="initialLoading"
       class="flex flex-col items-center justify-center gap-4 py-20"
-      :class="!data && status === 'idle' ? 'flex-1' : ''"
+      :class="!data ? 'flex-1' : ''"
     >
       <UIcon
         name="i-lucide-loader-circle"
@@ -246,19 +246,23 @@ async function startImport() {
       </div>
     </div>
 
-    <UCard
+    <div
       v-if="status === 'loading'"
-      class="w-full max-w-md mx-auto"
-      :ui="{ body: 'flex flex-col items-center justify-center gap-4 py-20' }"
+      class="flex flex-1 items-center justify-center py-8"
     >
-      <UIcon
-        name="i-lucide-loader-circle"
-        class="size-8 animate-spin text-muted"
-      />
-      <p class="text-sm text-muted text-center">
-        {{ estimate && remainingSeconds > 1 ? $t('home.loading_estimate', { count: estimate.count, seconds: remainingSeconds }) : estimate ? $t('home.loading_finishing') : $t('home.loading') }}
-      </p>
-    </UCard>
+      <UCard
+        class="w-full max-w-md mx-auto"
+        :ui="{ body: 'flex flex-col items-center justify-center gap-4 py-20' }"
+      >
+        <UIcon
+          name="i-lucide-loader-circle"
+          class="size-8 animate-spin text-muted"
+        />
+        <p class="text-sm text-muted text-center">
+          {{ estimate && remainingSeconds > 1 ? $t('home.loading_estimate', { count: estimate.count, seconds: remainingSeconds }) : estimate ? $t('home.loading_finishing') : $t('home.loading') }}
+        </p>
+      </UCard>
+    </div>
 
     <template v-if="data">
       <div class="flex flex-col gap-y-8">
