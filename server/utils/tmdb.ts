@@ -242,14 +242,32 @@ export function loadOrCreateCache(paths: CachePaths): Record<string, CachedMovie
   return readCacheFile(paths.snapshotPath) ?? {}
 }
 
+function roundMatchScore(value: number | undefined): number | undefined {
+  if (value === undefined) {
+    return undefined
+  }
+
+  return Math.round(value * 100) / 100
+}
+
 export function saveCache(paths: CachePaths, cache: Record<string, CachedMovie>) {
   if (!IS_DEV) {
     return
   }
 
   try {
+    const normalizedCache = Object.fromEntries(
+      Object.entries(cache).map(([key, movie]) => [
+        key,
+        {
+          ...movie,
+          matchScore: roundMatchScore(movie.matchScore)
+        }
+      ])
+    )
+
     mkdirSync(dirname(paths.runtimePath), { recursive: true })
-    writeFileSync(paths.runtimePath, JSON.stringify(cache, null, 2), 'utf-8')
+    writeFileSync(paths.runtimePath, JSON.stringify(normalizedCache, null, 2), 'utf-8')
   } catch (cacheError) {
     void cacheError
   }
