@@ -31,6 +31,7 @@ export default defineAppConfig({
     },
     card: {
       slots: {
+        root: 'rounded-lg overflow-hidden shadow-md',
         header: 'p-4 sm:px-4',
         title: 'text-xl text-default font-semibold',
         description: 'mt-1 text-muted text-base',
