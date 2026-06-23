@@ -17,7 +17,6 @@
     "upload_error_size": "File must be under 2MB",
     "upload_error_format": "Only .zip files are accepted",
     "upload_again": "Upload data again",
-    "min_rating_description": "Set a rating from 0.5 to 5, starting from which you like movies.\nOnly movies with this rating or higher will be processed.\nWe recommend keeping the default value (3).",
     "upload_or_demo": "Or, if you don't have your own data, you can:",
     "import_success": "Data import completed successfully.",
     "import_error": "Data import failed."
