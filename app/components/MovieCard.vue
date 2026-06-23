@@ -47,12 +47,25 @@ const formattedWatchedDates = computed(() => watchedDates.value.map(formatDate))
         v-for="d in movie.directors"
         :key="d.name"
         :name="d.name"
-        :avatar="d.photo ? { src: `https://image.tmdb.org/t/p/w45${d.photo}` } : undefined"
         :ui="{
           root: 'bg-elevated rounded-full pe-3',
           name: 'font-thin'
         }"
-      />
+      >
+        <template #avatar>
+          <img
+            v-if="d.photo"
+            :src="`https://image.tmdb.org/t/p/w45${d.photo}`"
+            :alt="d.name"
+            class="size-8 shrink-0 rounded-full object-cover"
+          >
+          <span
+            v-else
+            aria-hidden="true"
+            class="size-8 shrink-0 rounded-full bg-accented"
+          />
+        </template>
+      </UUser>
     </div>
     <div class="flex flex-wrap gap-2 mt-3">
       <UBadge
