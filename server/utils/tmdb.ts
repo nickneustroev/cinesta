@@ -18,6 +18,10 @@ const BATCH_SIZE = 10
 const ALT_FALLBACK_LIMIT = 8
 const DISCOVERY_FALLBACK_LIMIT = 12
 const HIGH_CONFIDENCE_SCORE = 150
+const DIRECT_MATCH_SCORE = 130
+const NARROW_FALLBACK_SCORE = 120
+const NARROW_FALLBACK_LIMIT = 3
+const TRANSLATION_FALLBACK_LIMIT = 5
 
 let lastRequest = 0
 
@@ -107,6 +111,12 @@ interface MatchResult {
 
 interface AlternativeTitleMatch {
   exact: boolean
+  score: number
+}
+
+interface RescoredCandidate {
+  candidate: TmdbSearchCandidate
+  alternativeExact: boolean
   score: number
 }
 
@@ -457,6 +467,11 @@ function shouldReturnEarly(match: MatchResult): boolean {
     && match.score >= HIGH_CONFIDENCE_SCORE
 }
 
+function shouldAcceptDirectMatch(match: MatchResult): boolean {
+  return (match.status === 'exact' || match.status === 'probable')
+    && match.score >= DIRECT_MATCH_SCORE
+}
+
 function getAmbiguityThreshold(score: number): number {
   if (score >= 130) {
     return 5
@@ -571,15 +586,89 @@ function getCandidateDiscoveryScore(candidate: TmdbSearchCandidate): number {
   return (candidate.vote_count ?? 0) + ((candidate.popularity ?? 0) * 10)
 }
 
-function selectFallbackCandidates(candidates: TmdbSearchCandidate[]): TmdbSearchCandidate[] {
+function selectFallbackCandidates(candidates: TmdbSearchCandidate[], limit?: number): TmdbSearchCandidate[] {
   const topByApiOrder = candidates.slice(0, ALT_FALLBACK_LIMIT)
   const topByDiscovery = [...candidates]
     .sort((a, b) => getCandidateDiscoveryScore(b) - getCandidateDiscoveryScore(a))
     .slice(0, DISCOVERY_FALLBACK_LIMIT)
 
-  return [...new Map(
+  const selected = [...new Map(
     [...topByApiOrder, ...topByDiscovery].map(candidate => [candidate.id, candidate])
   ).values()]
+
+  return limit ? selected.slice(0, limit) : selected
+}
+
+function getDirectMatchResult(firstMatch: MatchResult, secondMatch: MatchResult): MatchResult | null {
+  const directMatches = [firstMatch, secondMatch].filter(shouldAcceptDirectMatch)
+  if (directMatches.length === 0) {
+    return null
+  }
+
+  return directMatches.sort((a, b) => b.score - a.score)[0] ?? null
+}
+
+function getFallbackBaseResult(firstMatch: MatchResult, secondMatch: MatchResult): MatchResult {
+  if (secondMatch.status === 'exact') {
+    return secondMatch
+  }
+
+  return firstMatch
+}
+
+function resolveRescoredCandidates(rescoredCandidates: RescoredCandidate[], fallbackMatch: MatchResult): MatchResult {
+  const rescoredBest = rescoredCandidates.sort((a, b) => b.score - a.score)
+  const best = rescoredBest[0]
+  const second = rescoredBest[1]
+
+  if (!best) {
+    return fallbackMatch
+  }
+
+  let status = resolveMatchStatus(best.score)
+  if (best.alternativeExact && (status === 'exact' || status === 'probable')) {
+    return { candidate: best.candidate, status, score: best.score }
+  }
+
+  if (second && best.score - second.score < getAmbiguityThreshold(best.score) && status !== 'not_found') {
+    status = 'ambiguous'
+  }
+
+  if (status === 'exact' || status === 'probable') {
+    return { candidate: best.candidate, status, score: best.score }
+  }
+
+  return { candidate: null, status, score: best.score }
+}
+
+async function rescoreFallbackCandidates(
+  title: string,
+  year: number,
+  candidates: TmdbSearchCandidate[],
+  token: string,
+  proxyUrl: string | undefined,
+  includeTranslations: boolean
+): Promise<RescoredCandidate[]> {
+  return await Promise.all(
+    candidates.map(async (candidate, index) => {
+      const alternativeTitles = await getAlternativeTitles(candidate, token, proxyUrl)
+      const translatedTitles = includeTranslations
+        ? await getTranslatedTitles(candidate, token, proxyUrl)
+        : []
+      const metadataScore = scoreMetadataQuality(candidate)
+      const baseScore = scoreCandidate(title, year, candidate) + metadataScore
+      const alternativeMatch = scoreAlternativeTitles(title, year, candidate, [
+        ...alternativeTitles,
+        ...translatedTitles
+      ])
+
+      return {
+        candidate,
+        alternativeExact: alternativeMatch.exact,
+        score: Math.max(baseScore, alternativeMatch.score + metadataScore) + getSearchRankBonus(index)
+      }
+    })
+  )
 }
 
 async function searchMovie(title: string, year: number, _uri: string, token: string, locale: string, proxyUrl?: string): Promise<MatchResult> {
@@ -606,57 +695,62 @@ async function searchMovie(title: string, year: number, _uri: string, token: str
     return secondMatch
   }
 
+  const directMatch = getDirectMatchResult(firstMatch, secondMatch)
+  if (directMatch) {
+    return directMatch
+  }
+
   const mergedCandidates: TmdbSearchCandidate[] = [
     ...yearScopedResults,
     ...titleOnlyResults
   ]
   const dedupedCandidates: TmdbSearchCandidate[] = [...new Map(mergedCandidates.map(candidate => [candidate.id, candidate] as const)).values()]
-  const rawFallbackCandidates: TmdbSearchCandidate[] = selectFallbackCandidates(dedupedCandidates)
+  const fallbackLimit = Math.max(firstMatch.score, secondMatch.score) >= NARROW_FALLBACK_SCORE
+    ? NARROW_FALLBACK_LIMIT
+    : undefined
+  const rawFallbackCandidates: TmdbSearchCandidate[] = selectFallbackCandidates(dedupedCandidates, fallbackLimit)
+  const fallbackBaseResult = getFallbackBaseResult(firstMatch, secondMatch)
 
   if (rawFallbackCandidates.length === 0) {
-    return secondMatch.status === 'exact' ? secondMatch : firstMatch
+    return fallbackBaseResult
   }
 
-  const rescoredCandidates = await Promise.all(
-    rawFallbackCandidates.map(async (candidate, index) => {
-      const alternativeTitles = await getAlternativeTitles(candidate, token, proxyUrl)
-      const translatedTitles = await getTranslatedTitles(candidate, token, proxyUrl)
-      const metadataScore = scoreMetadataQuality(candidate)
-      const baseScore = scoreCandidate(title, year, candidate) + metadataScore
-      const alternativeMatch = scoreAlternativeTitles(title, year, candidate, [
-        ...alternativeTitles,
-        ...translatedTitles
-      ])
-      return {
-        candidate,
-        alternativeExact: alternativeMatch.exact,
-        score: Math.max(baseScore, alternativeMatch.score + metadataScore) + getSearchRankBonus(index)
-      }
-    })
+  const alternativeTitleCandidates = await rescoreFallbackCandidates(
+    title,
+    year,
+    rawFallbackCandidates,
+    token,
+    proxyUrl,
+    false
   )
-
-  const rescoredBest = rescoredCandidates.sort((a, b) => b.score - a.score)
-  const best = rescoredBest[0]
-  const second = rescoredBest[1]
-
-  if (!best) {
-    return secondMatch.status === 'exact' ? secondMatch : firstMatch
+  const alternativeTitleMatch = resolveRescoredCandidates(alternativeTitleCandidates, fallbackBaseResult)
+  if (alternativeTitleMatch.status === 'exact' || alternativeTitleMatch.status === 'probable') {
+    return alternativeTitleMatch
   }
 
-  let status = resolveMatchStatus(best.score)
-  if (best.alternativeExact && (status === 'exact' || status === 'probable')) {
-    return { candidate: best.candidate, status, score: best.score }
+  const translationCandidates = alternativeTitleCandidates
+    .sort((a, b) => b.score - a.score)
+    .slice(0, TRANSLATION_FALLBACK_LIMIT)
+    .map(entry => entry.candidate)
+
+  if (translationCandidates.length === 0) {
+    return alternativeTitleMatch.candidate ? alternativeTitleMatch : fallbackBaseResult
   }
 
-  if (second && best.score - second.score < getAmbiguityThreshold(best.score) && status !== 'not_found') {
-    status = 'ambiguous'
+  const translatedCandidates = await rescoreFallbackCandidates(
+    title,
+    year,
+    translationCandidates,
+    token,
+    proxyUrl,
+    true
+  )
+  const translatedMatch = resolveRescoredCandidates(translatedCandidates, fallbackBaseResult)
+  if (translatedMatch.status === 'exact' || translatedMatch.status === 'probable') {
+    return translatedMatch
   }
 
-  if (status === 'exact' || status === 'probable') {
-    return { candidate: best.candidate, status, score: best.score }
-  }
-
-  return secondMatch.status === 'exact' ? secondMatch : { candidate: null, status, score: best.score }
+  return alternativeTitleMatch.candidate ? alternativeTitleMatch : translatedMatch.candidate ? translatedMatch : fallbackBaseResult
 }
 
 async function getTitleDetails(candidate: TmdbSearchCandidate, token: string, locale: string, proxyUrl?: string): Promise<MovieDetails | null> {
