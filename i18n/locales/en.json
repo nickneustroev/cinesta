@@ -52,6 +52,10 @@
     "watched": "Watched:",
     "watched_before": "Watched: before"
   },
+  "footer": {
+    "built_with": "Built with",
+    "tmdb": "TMDB (The Movie Database)"
+  },
   "movies_grid": {
     "show_more": "Show {count} more",
     "view_all": "View all",

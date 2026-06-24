@@ -84,7 +84,40 @@ function switchLocale(code: string) {
     <UFooter>
       <template #left>
         <p class="text-sm text-muted">
-          Built with Nuxt UI • © {{ new Date().getFullYear() }}
+          {{ t('footer.built_with') }}
+          <a
+            href="https://nuxt.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="hover:text-default transition-colors"
+          >
+            Nuxt
+          </a>,
+          <a
+            href="https://ui.nuxt.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="hover:text-default transition-colors"
+          >
+            Nuxt UI
+          </a>,
+          <a
+            href="https://nuxtcharts.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="hover:text-default transition-colors"
+          >
+            Nuxt Charts
+          </a>,
+          <a
+            href="https://www.themoviedb.org"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="hover:text-default transition-colors"
+          >
+            {{ t('footer.tmdb') }}
+          </a>
+          • © {{ new Date().getFullYear() }}
         </p>
       </template>
 

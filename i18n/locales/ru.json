@@ -52,6 +52,10 @@
     "watched": "Посмотрено:",
     "watched_before": "Посмотрено: до"
   },
+  "footer": {
+    "built_with": "Сделано с помощью",
+    "tmdb": "TMDB (The Movie Database)"
+  },
   "movies_grid": {
     "show_more": "Показать еще {count}",
     "view_all": "Смотреть всё",
