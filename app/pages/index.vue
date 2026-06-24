@@ -140,7 +140,6 @@ async function startImport() {
     showUpload.value = false
     showSuccess()
   } else {
-    uploadedFile.value = null
     showUpload.value = true
     toast.add({ title: error.value || t('home.import_error'), color: 'error', icon: 'i-lucide-x-circle' })
   }
