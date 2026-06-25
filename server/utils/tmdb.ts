@@ -138,6 +138,10 @@ interface CachePaths {
 }
 
 function logProcess(message: string) {
+  logWithTimestamp(message)
+}
+
+function logWithTimestamp(...args: unknown[]) {
   const timestamp = new Intl.DateTimeFormat('sv-SE', {
     year: 'numeric',
     month: '2-digit',
@@ -147,7 +151,7 @@ function logProcess(message: string) {
     second: '2-digit',
     hour12: false
   }).format(new Date()).replace(',', '')
-  console.log(`[${timestamp}] [process] ${message}`)
+  console.log(`[${timestamp}]`, ...args)
 }
 
 function resolveEnrichmentMinRating(explicitMinRating?: number | null): number | null {
@@ -223,6 +227,14 @@ function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
+function formatDuration(durationMs: number) {
+  const totalSeconds = Math.max(0, Math.round(durationMs / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+
+  return `${minutes}м ${seconds}с`
+}
+
 function normalizeTmdbToken(token: string) {
   return token.startsWith('Bearer ') ? token : `Bearer ${token}`
 }
@@ -256,24 +268,15 @@ function createTmdbFetchOptions(token: string, options: TmdbRequestOptions = {})
 }
 
 async function probeTmdbProxy(proxyUrl: string, token: string): Promise<boolean> {
-  console.log('[tmdb] proxy задан')
-  console.log('[tmdb] проверка доступности proxy')
-
   try {
     const response = await undiciFetch(`${TMDB_BASE}/configuration`, createTmdbFetchOptions(token, {
       proxyUrl,
       timeoutMs: TMDB_TIMEOUT_MS
     }))
 
-    if (!response.ok) {
-      console.log(`[tmdb] proxy доступен, но тестовый запрос к TMDB вернул статус ${response.status}`)
-      return false
-    }
-
-    console.log('[tmdb] proxy доступен и будет использоваться для запросов к TMDB')
-    return true
+    return response.ok
   } catch (error) {
-    console.log('[tmdb] proxy недоступен, запросы к TMDB пойдут без него:', error)
+    void error
     return false
   }
 }
@@ -337,18 +340,18 @@ async function tmdbFetch<T>(url: string, token: string, proxyUrl?: string): Prom
   try {
     res = await undiciFetch(url, createTmdbFetchOptions(token, { proxyUrl }))
   } catch (e) {
-    console.log('[tmdb] ошибка сети:', e)
+    logWithTimestamp('ошибка сети:', e)
     return null
   }
 
   if (res.status === 429) {
-    console.log('[tmdb] rate limit, повтор через 2с')
+    logWithTimestamp('rate limit, повтор через 2с')
     await sleep(2000)
     return tmdbFetch(url, token, proxyUrl)
   }
 
   if (!res.ok) {
-    console.log('[tmdb] ошибка запроса', res.status, res.statusText)
+    logWithTimestamp('ошибка запроса', res.status, res.statusText)
     return null
   }
   return await res.json() as T
@@ -1189,185 +1192,207 @@ export async function processCSVData(
   const { tmdbToken, tmdbProxy, tmdbDisableCacheRead } = useRuntimeConfig()
   const resolvedMinRating = resolveEnrichmentMinRating(minRating)
   const shouldReadCache = !isTruthyEnvFlag(tmdbDisableCacheRead)
-  logProcess('подготовка данных началась')
+  logProcess('начат импорт: подготовка данных')
 
-  const proxyUrl = tmdbProxy.trim() || undefined
-  let shouldUseProxy = false
+  try {
+    const proxyUrl = tmdbProxy.trim() || undefined
+    let shouldUseProxy = false
+    let tmdbStatusLog = 'подключение не обнаружено'
 
-  if (proxyUrl && tmdbToken) {
-    shouldUseProxy = await probeTmdbProxy(proxyUrl, tmdbToken)
-  } else if (proxyUrl) {
-    console.log('[tmdb] proxy задан, но проверка пропущена: tmdb token не задан')
-  } else {
-    console.log('[tmdb] proxy не задан')
-  }
+    if (proxyUrl && tmdbToken) {
+      shouldUseProxy = await probeTmdbProxy(proxyUrl, tmdbToken)
+    } else if (proxyUrl) {
+      tmdbStatusLog = 'proxy задан, но tmdb token не задан'
+    }
 
-  // Проверка подключения к TMDB
-  let tmdbAvailable = false
-  if (tmdbToken) {
-    try {
-      const testRes = await undiciFetch(`${TMDB_BASE}/configuration`, createTmdbFetchOptions(tmdbToken, {
-        proxyUrl: shouldUseProxy ? proxyUrl : undefined,
-        timeoutMs: TMDB_TIMEOUT_MS
-      }))
-      if (testRes.ok) {
-        tmdbAvailable = true
-        console.log(`[tmdb] подключение обнаружено и успешно${shouldUseProxy ? ' через proxy' : ''}`)
-      } else {
-        console.log('[tmdb] подключение обнаружено, но tmdb api не отвечает (статус: ' + testRes.status + ')')
+    // Проверка подключения к TMDB
+    let tmdbAvailable = false
+    if (tmdbToken) {
+      try {
+        const testRes = await undiciFetch(`${TMDB_BASE}/configuration`, createTmdbFetchOptions(tmdbToken, {
+          proxyUrl: shouldUseProxy ? proxyUrl : undefined,
+          timeoutMs: TMDB_TIMEOUT_MS
+        }))
+        if (testRes.ok) {
+          tmdbAvailable = true
+          if (proxyUrl) {
+            tmdbStatusLog = shouldUseProxy
+              ? 'TMDB доступен через proxy'
+              : 'proxy недоступен, TMDB доступен напрямую'
+          } else {
+            tmdbStatusLog = 'TMDB доступен'
+          }
+        } else {
+          if (proxyUrl) {
+            tmdbStatusLog = shouldUseProxy
+              ? `proxy доступен, но TMDB не отвечает (статус: ${testRes.status})`
+              : `proxy недоступен и TMDB не отвечает напрямую (статус: ${testRes.status})`
+          } else {
+            tmdbStatusLog = `TMDB не отвечает (статус: ${testRes.status})`
+          }
+        }
+      } catch {
+        if (proxyUrl) {
+          tmdbStatusLog = shouldUseProxy
+            ? 'proxy доступен, но TMDB не отвечает'
+            : 'proxy недоступен и TMDB недоступен напрямую'
+        } else {
+          tmdbStatusLog = 'TMDB недоступен'
+        }
       }
-    } catch (e) {
-      console.log('[tmdb] подключение обнаружено, но tmdb api не отвечает:', e)
     }
-  } else {
-    console.log('[tmdb] подключение не обнаружено')
-  }
+    logWithTimestamp(tmdbStatusLog)
 
-  if (tmdbRequired && !tmdbAvailable) {
-    throw createError({ statusCode: 503, statusMessage: 'TMDB unavailable', message: 'Не удается загрузить данные из базы TMDB' })
-  }
+    if (tmdbRequired && !tmdbAvailable) {
+      throw createError({ statusCode: 503, statusMessage: 'TMDB unavailable', message: 'Не удается загрузить данные из базы TMDB' })
+    }
 
-  const raw = parseRawImportData(csvFiles)
-  const baseData = buildNormalizedImportData(raw)
+    const raw = parseRawImportData(csvFiles)
+    const baseData = buildNormalizedImportData(raw)
 
-  logProcess(`csv прочитаны в json: diary ${raw.diary.length}, ratings ${raw.ratings.length}`)
+    logProcess(`csv прочитаны в json: diary ${raw.diary.length}, ratings ${raw.ratings.length}`)
 
-  logProcess(
-    resolvedMinRating === null
-      ? 'требуется обогащение данных: для всех ratings'
-      : `требуется обогащение данных: для ratings с оценкой ≥ ${resolvedMinRating}`
-  )
+    logProcess(
+      resolvedMinRating === null
+        ? 'требуется обогащение данных: для всех ratings'
+        : `требуется обогащение данных: для ratings с оценкой ≥ ${resolvedMinRating}`
+    )
 
-  const cache = shouldReadCache ? loadOrCreateCache(cachePaths) : {}
+    const cache = shouldReadCache ? loadOrCreateCache(cachePaths) : {}
 
-  if (!shouldReadCache) {
-    logProcess('чтение TMDB-кэша отключено env-переменной')
-  }
+    if (!shouldReadCache) {
+      logProcess('чтение TMDB-кэша отключено env-переменной')
+    }
 
-  const enrichableMovieIds = new Set(
-    raw.ratings
-      .filter(entry => resolvedMinRating === null || entry.rating >= resolvedMinRating)
-      .map(entry => getMovieIdForRawEntry(entry))
-  )
-  const toEnrich = baseData.movies.filter(movie => enrichableMovieIds.has(movie.id) && movie.movieUri)
+    const enrichableMovieIds = new Set(
+      raw.ratings
+        .filter(entry => resolvedMinRating === null || entry.rating >= resolvedMinRating)
+        .map(entry => getMovieIdForRawEntry(entry))
+    )
+    const toEnrich = baseData.movies.filter(movie => enrichableMovieIds.has(movie.id) && movie.movieUri)
 
-  let cachedCount = 0
-  let fetchCount = 0
-  for (const movie of toEnrich) {
-    if (movie.movieUri && isResolvedCacheEntry(cache[cacheKey(movie.movieUri, locale)])) {
-      cachedCount++
+    let cachedCount = 0
+    let fetchCount = 0
+    for (const movie of toEnrich) {
+      if (movie.movieUri && isResolvedCacheEntry(cache[cacheKey(movie.movieUri, locale)])) {
+        cachedCount++
+      } else {
+        fetchCount++
+      }
+    }
+
+    let exactMatch = 0
+    let fuzzyMatch = 0
+    let notFound = 0
+
+    if (fetchCount === 0) {
+      logProcess(`обогащение данных: ${cachedCount} из кэша`)
+    } else if (!tmdbAvailable) {
+      logProcess(`обогащение данных: ${cachedCount} из кэша, ${fetchCount} пропущено (tmdb недоступен)`)
     } else {
-      fetchCount++
-    }
-  }
+      logProcess(`обогащение данных: ${cachedCount} из кэша, ${fetchCount} через TMDB`)
 
-  let exactMatch = 0
-  let fuzzyMatch = 0
-  let notFound = 0
+      const toFetch = toEnrich.filter(movie => movie.movieUri && !isResolvedCacheEntry(cache[cacheKey(movie.movieUri, locale)]))
+      const batchDelay = Math.ceil((BATCH_SIZE * 2) / RATE_LIMIT * 1000)
+      const enrichmentStartedAt = Date.now()
 
-  if (fetchCount === 0) {
-    logProcess(`обогащение данных: ${cachedCount} из кэша`)
-  } else if (!tmdbAvailable) {
-    logProcess(`обогащение данных: ${cachedCount} из кэша, ${fetchCount} пропущено (tmdb недоступен)`)
-  } else {
-    logProcess(`обогащение данных: ${cachedCount} из кэша, ${fetchCount} через TMDB`)
+      for (let i = 0; i < toFetch.length; i += BATCH_SIZE) {
+        const start = Date.now()
+        const batch = toFetch.slice(i, i + BATCH_SIZE)
 
-    const toFetch = toEnrich.filter(movie => movie.movieUri && !isResolvedCacheEntry(cache[cacheKey(movie.movieUri, locale)]))
-    const batchDelay = Math.ceil((BATCH_SIZE * 2) / RATE_LIMIT * 1000)
+        const searches = await Promise.all(
+          batch.map(movie => searchMovie(movie.title, movie.year, movie.movieUri!, tmdbToken, locale, shouldUseProxy ? proxyUrl : undefined))
+        )
 
-    for (let i = 0; i < toFetch.length; i += BATCH_SIZE) {
-      const start = Date.now()
-      const batch = toFetch.slice(i, i + BATCH_SIZE)
+        const details = await Promise.all(
+          searches.map((search) => {
+            if (!search.candidate || (search.status !== 'exact' && search.status !== 'probable')) {
+              return null
+            }
 
-      const searches = await Promise.all(
-        batch.map(movie => searchMovie(movie.title, movie.year, movie.movieUri!, tmdbToken, locale, shouldUseProxy ? proxyUrl : undefined))
-      )
+            return getTitleDetails(search.candidate, tmdbToken, locale, shouldUseProxy ? proxyUrl : undefined)
+          })
+        )
 
-      const details = await Promise.all(
-        searches.map((search) => {
-          if (!search.candidate || (search.status !== 'exact' && search.status !== 'probable')) {
-            return null
+        for (let j = 0; j < batch.length; j++) {
+          const movie = batch[j]!
+          const searchResult = searches[j]!
+          const detail = details[j]!
+          const key = cacheKey(movie.movieUri!, locale)
+
+          if (!searchResult.candidate || !detail) {
+            cache[key] = {
+              title: movie.title,
+              year: movie.year,
+              tmdbId: searchResult.candidate?.id ?? null,
+              englishTitle: null,
+              genres: [],
+              poster: null,
+              directors: [],
+              matched: false,
+              movieUri: movie.movieUri,
+              matchStatus: searchResult.status,
+              matchScore: searchResult.score,
+              matchVersion: MATCH_VERSION
+            }
+            notFound++
+            continue
           }
 
-          return getTitleDetails(search.candidate, tmdbToken, locale, shouldUseProxy ? proxyUrl : undefined)
-        })
-      )
-
-      for (let j = 0; j < batch.length; j++) {
-        const movie = batch[j]!
-        const searchResult = searches[j]!
-        const detail = details[j]!
-        const key = cacheKey(movie.movieUri!, locale)
-
-        if (!searchResult.candidate || !detail) {
           cache[key] = {
-            title: movie.title,
+            title: detail.title ?? movie.title,
             year: movie.year,
-            tmdbId: searchResult.candidate?.id ?? null,
-            englishTitle: null,
-            genres: [],
-            poster: null,
-            directors: [],
-            matched: false,
+            tmdbId: searchResult.candidate.id,
+            englishTitle: detail.englishTitle,
+            genres: detail.genres,
+            poster: detail.poster,
+            directors: detail.directors,
+            matched: true,
             movieUri: movie.movieUri,
             matchStatus: searchResult.status,
             matchScore: searchResult.score,
             matchVersion: MATCH_VERSION
           }
-          notFound++
-          continue
+
+          if (searchResult.status === 'exact') {
+            exactMatch++
+          } else {
+            fuzzyMatch++
+          }
         }
 
-        cache[key] = {
-          title: detail.title ?? movie.title,
-          year: movie.year,
-          tmdbId: searchResult.candidate.id,
-          englishTitle: detail.englishTitle,
-          genres: detail.genres,
-          poster: detail.poster,
-          directors: detail.directors,
-          matched: true,
-          movieUri: movie.movieUri,
-          matchStatus: searchResult.status,
-          matchScore: searchResult.score,
-          matchVersion: MATCH_VERSION
-        }
-
-        if (searchResult.status === 'exact') {
-          exactMatch++
-        } else {
-          fuzzyMatch++
+        if (i + BATCH_SIZE < toFetch.length) {
+          const elapsed = Date.now() - start
+          await sleep(Math.max(0, batchDelay - elapsed))
         }
       }
 
-      if (i + BATCH_SIZE < toFetch.length) {
-        const elapsed = Date.now() - start
-        await sleep(Math.max(0, batchDelay - elapsed))
-      }
+      const enrichmentDuration = formatDuration(Date.now() - enrichmentStartedAt)
+      logProcess(`обогащение завершено за ${enrichmentDuration}: ${exactMatch} точных, ${fuzzyMatch} неточно, ${notFound} не найдено`)
     }
 
-    logProcess(`обогащение завершено: ${exactMatch} точных, ${fuzzyMatch} неточно, ${notFound} не найдено`)
+    const enrichedMovies: Movie[] = baseData.movies.map((movie) => {
+      const cached = movie.movieUri ? cache[cacheKey(movie.movieUri, locale)] : undefined
+
+      return {
+        id: movie.id,
+        movieUri: movie.movieUri,
+        title: cached?.title ?? movie.title,
+        year: movie.year,
+        tmdbId: cached?.tmdbId ?? null,
+        englishTitle: cached?.englishTitle ?? null,
+        genres: cached?.genres ?? [],
+        poster: cached?.poster ?? null,
+        directors: cached?.directors ?? [],
+        matched: cached?.matched ?? false
+      }
+    })
+
+    saveCache(cachePaths, cache)
+
+    logProcess('данные готовы, передаем на фронтенд')
+    return buildEnrichedImportData(baseData, enrichedMovies)
+  } finally {
+    logProcess('------')
   }
-
-  const enrichedMovies: Movie[] = baseData.movies.map((movie) => {
-    const cached = movie.movieUri ? cache[cacheKey(movie.movieUri, locale)] : undefined
-
-    return {
-      id: movie.id,
-      movieUri: movie.movieUri,
-      title: cached?.title ?? movie.title,
-      year: movie.year,
-      tmdbId: cached?.tmdbId ?? null,
-      englishTitle: cached?.englishTitle ?? null,
-      genres: cached?.genres ?? [],
-      poster: cached?.poster ?? null,
-      directors: cached?.directors ?? [],
-      matched: cached?.matched ?? false
-    }
-  })
-
-  saveCache(cachePaths, cache)
-
-  logProcess('данные готовы, передаем на фронтенд')
-  return buildEnrichedImportData(baseData, enrichedMovies)
 }
