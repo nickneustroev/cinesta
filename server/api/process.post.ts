@@ -34,6 +34,7 @@ export default defineEventHandler(async (event): Promise<EnrichedImportData> => 
     CACHE_PATHS,
     locale,
     minRating,
-    tmdbRequired
+    tmdbRequired,
+    'demo'
   )
 })

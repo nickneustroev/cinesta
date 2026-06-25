@@ -137,6 +137,8 @@ interface CachePaths {
   snapshotPath: string
 }
 
+type ImportSource = 'demo' | 'upload'
+
 function logProcess(message: string) {
   logWithTimestamp(message)
 }
@@ -1187,12 +1189,13 @@ export async function processCSVData(
   cachePaths: CachePaths,
   locale = 'en-US',
   minRating: number | null | undefined = undefined,
-  tmdbRequired = true
+  tmdbRequired = true,
+  source: ImportSource = 'upload'
 ): Promise<EnrichedImportData> {
   const { tmdbToken, tmdbProxy, tmdbDisableCacheRead } = useRuntimeConfig()
   const resolvedMinRating = resolveEnrichmentMinRating(minRating)
   const shouldReadCache = !isTruthyEnvFlag(tmdbDisableCacheRead)
-  logProcess('начат импорт: подготовка данных')
+  logProcess(source === 'demo' ? 'начат импорт: demo.zip' : 'начат импорт: пользовательский zip')
 
   try {
     const proxyUrl = tmdbProxy.trim() || undefined
