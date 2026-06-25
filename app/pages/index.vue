@@ -233,7 +233,7 @@ async function startImport() {
 
       <div
         v-if="status !== 'loading'"
-        class="flex gap-4"
+        class="flex flex-col items-center gap-4 sm:flex-row"
       >
         <UButton
           v-if="data && !showUpload"
