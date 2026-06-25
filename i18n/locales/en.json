@@ -8,7 +8,7 @@
     "run": "Run on demo profile",
     "run_again": "Restart on demo profile",
     "loading": "Preparing data...",
-    "loading_estimate": "Processing ~{count} movies... ~{seconds} sec remaining",
+    "loading_estimate": "Processing ~{count} movies... ~{duration} remaining",
     "loading_finishing": "Processing will finish soon, please wait",
     "top_movies": "Top Movies by Rating",
     "last_movies_watched": "Last Movies Watched",

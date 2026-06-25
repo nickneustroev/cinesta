@@ -1,7 +1,17 @@
 import JSZip from 'jszip'
 
-const MOVIES_PER_SECOND = 13
 const MIN_TIME_SECONDS = 10
+const DEFAULT_MOVIES_PER_MINUTE = 300
+
+function getMoviesPerSecond() {
+  const { public: { importMoviesPerMinute } } = useRuntimeConfig()
+  const parsedValue = Number(String(importMoviesPerMinute ?? '').trim())
+  const moviesPerMinute = Number.isFinite(parsedValue) && parsedValue > 0
+    ? parsedValue
+    : DEFAULT_MOVIES_PER_MINUTE
+
+  return moviesPerMinute / 60
+}
 
 export async function estimateProcessingTime(file: File): Promise<{ count: number, seconds: number } | null> {
   try {
@@ -24,7 +34,7 @@ export async function estimateProcessingTime(file: File): Promise<{ count: numbe
       if (!Number.isNaN(rating)) count++
     }
 
-    const seconds = Math.max(MIN_TIME_SECONDS, Math.round(count / MOVIES_PER_SECOND))
+    const seconds = Math.max(MIN_TIME_SECONDS, Math.round(count / getMoviesPerSecond()))
     return { count, seconds }
   } catch {
     return null

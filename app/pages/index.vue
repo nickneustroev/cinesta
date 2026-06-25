@@ -21,6 +21,14 @@ const estimateSummary = computed(() => {
   })
 })
 
+const loadingEstimateSummary = computed(() => {
+  if (!estimate.value || remainingSeconds.value <= 1) return null
+  return t('home.loading_estimate', {
+    count: estimate.value.count,
+    duration: formatEstimateDuration(remainingSeconds.value)
+  })
+})
+
 onMounted(async () => {
   await load()
   initialLoading.value = false
@@ -258,7 +266,7 @@ async function startImport() {
           class="size-8 animate-spin text-muted"
         />
         <p class="text-sm text-muted text-center">
-          {{ estimate && remainingSeconds > 1 ? $t('home.loading_estimate', { count: estimate.count, seconds: remainingSeconds }) : estimate ? $t('home.loading_finishing') : $t('home.loading') }}
+          {{ loadingEstimateSummary || (estimate ? $t('home.loading_finishing') : $t('home.loading')) }}
         </p>
       </UCard>
     </div>

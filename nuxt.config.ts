@@ -33,7 +33,10 @@ export default defineNuxtConfig({
     tmdbProxy: '',
     tmdbMinRating: '',
     tmdbDisableCacheRead: '',
-    importMaxMovies: ''
+    importMaxMovies: '',
+    public: {
+      importMoviesPerMinute: '300'
+    }
   },
 
   compatibilityDate: '2025-01-15',
