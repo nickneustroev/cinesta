@@ -38,8 +38,8 @@ const navigationItems = computed<NavigationMenuItem[]>(() => [
 ])
 
 const localeItems = [
-  { label: 'English', value: 'en' },
-  { label: 'Русский', value: 'ru' }
+  { label: 'English', shortLabel: 'EN', value: 'en' },
+  { label: 'Русский', shortLabel: 'RU', value: 'ru' }
 ]
 
 useSeoMeta({
@@ -76,10 +76,35 @@ function switchLocale(code: string) {
         <USelect
           :items="localeItems"
           value-key="value"
+          size="sm"
+          class="w-16 sm:hidden"
+          :model-value="locale"
+          @update:model-value="switchLocale"
+        >
+          <template #default="{ modelValue }">
+            {{ localeItems.find(item => item.value === modelValue)?.shortLabel }}
+          </template>
+
+          <template #item-label="{ item }">
+            {{ item.shortLabel }}
+          </template>
+        </USelect>
+
+        <USelect
+          :items="localeItems"
+          value-key="value"
           class="hidden w-32 sm:inline-flex"
           :model-value="locale"
           @update:model-value="switchLocale"
-        />
+        >
+          <template #default="{ modelValue }">
+            {{ localeItems.find(item => item.value === modelValue)?.label }}
+          </template>
+
+          <template #item-label="{ item }">
+            {{ item.label }}
+          </template>
+        </USelect>
 
         <UColorModeButton />
 
@@ -105,14 +130,6 @@ function switchLocale(code: string) {
         <USeparator class="my-6" />
 
         <div class="flex flex-col gap-3">
-          <USelect
-            :items="localeItems"
-            value-key="value"
-            class="w-full"
-            :model-value="locale"
-            @update:model-value="switchLocale"
-          />
-
           <UButton
             to="https://github.com/nickneustroev/cinesta"
             target="_blank"
