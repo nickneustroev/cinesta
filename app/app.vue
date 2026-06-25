@@ -76,7 +76,7 @@ function switchLocale(code: string) {
         <USelect
           :items="localeItems"
           value-key="value"
-          class="hidden w-32 sm:block"
+          class="hidden w-32 sm:inline-flex"
           :model-value="locale"
           @update:model-value="switchLocale"
         />
