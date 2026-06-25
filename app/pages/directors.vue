@@ -13,6 +13,7 @@ const tabItems = computed(() => [
   { label: t('pages.directors.tabs.points'), value: 'points' },
   { label: t('pages.directors.tabs.highest'), value: 'highest' }
 ])
+const tabsOrientation = useTabsOrientation()
 
 const route = useRoute()
 const router = useRouter()
@@ -48,6 +49,7 @@ watch(activeTab, (tab) => {
       <UTabs
         v-model="activeTab"
         :items="tabItems"
+        :orientation="tabsOrientation"
         size="xl"
         variant="link"
         class="pt-6"
