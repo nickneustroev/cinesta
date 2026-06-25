@@ -156,7 +156,7 @@ watch([selectedYear, selectedWatchedYear, selectedGenre], () => {
     </h3>
     <div
       v-if="showYearFilter"
-      class="flex gap-4 mb-4"
+      class="mb-4 flex flex-wrap gap-4"
     >
       <div>
         <p class="text-sm text-muted mb-1">
